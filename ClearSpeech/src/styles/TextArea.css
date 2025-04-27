@@ -1,0 +1,27 @@
+.textarea {
+    width: 100%;
+    max-width: 600px;
+    height: 18rem;
+    padding: 1rem;
+    font-size: 1rem;
+    border: none;
+    background-color: #fafafa;
+    border-radius: 0.75rem;
+    box-shadow:
+      0 4px 6px rgba(0, 0, 0, 0.1),
+      inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    resize: none;
+    outline: none;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin-top: 1rem;
+  }
+  
+  .textarea:hover,
+  .textarea:focus {
+    transform: scale(0.98);
+  }
+  
+  .textarea::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  

@@ -3,6 +3,10 @@ import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 import { useNavigate } from "react-router-dom"; // Add navigate
 import { db } from "../Utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import "../styles/Button.css";
+import "../styles/TextArea.css";
+import "../styles/AudioPlayer.css";
+
 
 export default function NoAIPage({ onComplete }: NoAIPageProps) {
   const [transcription, setTranscription] = useState("");
@@ -15,6 +19,8 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   const [showStartBtn, setShowStartBtn] = useState(false);
   const [showTextarea, setShowTextarea] = useState(false);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const [results, setResults] = useState<Array<{
     clipIndex: number;
     wer: number;
@@ -23,32 +29,36 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   }>>([]);
 
   const audioList = [
-    // Easy
-    "../../public/Testing_Data/Easy/Easy1.wav",
-    "../../public/Testing_Data/Easy/Easy2.wav",
-    "../../public/Testing_Data/Easy/Easy3.wav",
-    // Medium
-    "../../public/Testing_Data/Medium/Medium1.wav",
-    "../../public/Testing_Data/Medium/Medium2.wav",
-    "../../public/Testing_Data/Medium/Medium3.wav",
-    // Hard
-    "../../public/Testing_Data/Hard/Hard1.wav",
-    "../../public/Testing_Data/Hard/Hard2.wav",
-    "../../public/Testing_Data/Hard/Hard3.wav",
+    "/Testing_Data/Easy/Easy1.wav",
+    "/Testing_Data/Easy/Easy2.wav",
+    "/Testing_Data/Easy/Easy3.wav",
+    "/Testing_Data/Medium/Medium1.wav",
+    "/Testing_Data/Medium/Medium2.wav",
+    "/Testing_Data/Medium/Medium3.wav",
+    "/Testing_Data/Hard/Hard1.wav",
+    "/Testing_Data/Hard/Hard2.wav",
+    "/Testing_Data/Hard/Hard3.wav",
   ];
 
   const transcriptPaths = [
-    "../../public/Testing_Data/Easy/Easy1.txt",
-    "../../public/Testing_Data/Easy/Easy2.txt",
-    "../../public/Testing_Data/Easy/Easy3.txt",
-    "../../public/Testing_Data/Medium/Medium1.txt",
-    "../../public/Testing_Data/Medium/Medium2.txt",
-    "../../public/Testing_Data/Medium/Medium3.txt",
-    "../../public/Testing_Data/Hard/Hard1.txt",
-    "../../public/Testing_Data/Hard/Hard2.txt",
-    "../../public/Testing_Data/Hard/Hard3.txt",
+    "/Testing_Data/Easy/Easy1.txt",
+    "/Testing_Data/Easy/Easy2.txt",
+    "/Testing_Data/Easy/Easy3.txt",
+    "/Testing_Data/Medium/Medium1.txt",
+    "/Testing_Data/Medium/Medium2.txt",
+    "/Testing_Data/Medium/Medium3.txt",
+    "/Testing_Data/Hard/Hard1.txt",
+    "/Testing_Data/Hard/Hard2.txt",
+    "/Testing_Data/Hard/Hard3.txt",
   ];
 
+  useEffect(() => {
+      if (showTextarea) {
+        setTimeout(() => textareaRef.current?.focus(), 0);
+      }
+    }, [showTextarea]);
+
+    
   useEffect(() => {
     fetch(transcriptPaths[currentIndex])
       .then((res) => res.text())
@@ -60,10 +70,21 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   }, [currentIndex]);
 
   const onAudioEnded = () => setShowStartBtn(true);
+
   const handleBeginTranscription = () => {
     setStartTime(performance.now());
     setShowTextarea(true);
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && showStartBtn && !showTextarea) {
+        handleBeginTranscription();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showStartBtn, showTextarea, handleBeginTranscription]);
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter") return;
@@ -80,7 +101,7 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
     const wer = calculateWER(groundTruth, transcription);
     const cer = calculateCER(groundTruth, transcription);
 
-    const newResult = { clipIndex: currentIndex, wer, cer, durationSeconds };
+    const newResult = { clipIndex: currentIndex, wer, cer, durationSeconds,transcription };
 
     // move to next clip or finish
     if (currentIndex < audioList.length - 1) {
@@ -100,7 +121,12 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
           });
       }, 0);
     } else {
-      const finalResults = [...results, newResult];
+      const finalResults = [...results, {
+        wer,
+        cer,
+        durationSeconds,
+        transcription,
+      }];
 
       const sessionDoc = {
         taskType: "No AI",
@@ -118,40 +144,47 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-6">
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
         {/* Title */}
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-2">
+        <h1 style={{ marginBottom: '1rem', fontSize: '2rem' }}>
           🎙️ Audio Transcription
         </h1>
 
         {/* Audio player for current clip */}
         <audio
+          className="audio-player"
           ref={audioRef}
           src={audioList[currentIndex]}
           controls
           onEnded={onAudioEnded}
-          className="block mb-4"
         />
 
         {/* Transcription Box */}
         {showStartBtn && !showTextarea && (
           <button
           onClick={handleBeginTranscription}
-          className="mb-4 px-4 py-2 bg-blue-600 text-white rounded"
+          className="btn"
           >
-            Begin Transcription
+            Begin Transcription (Press Enter or Click to Continue)
           </button>
         )}
 
       {/* Textarea for transcription */}
       {showTextarea && (
-        <textarea
-          value={transcription}
-          onChange={(e) => setTranscription(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type transcript here, then press Enter to submit"
-          className="w-full h-48 p-2 border rounded"
-        />
+        <>
+          <textarea
+            className="textarea"
+            ref={textareaRef}
+            value={transcription}
+            onChange={(e) => setTranscription(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type transcript here, then press Enter to submit"
+          />
+
+          <button className="btn" style={{ marginTop: "1rem" }} disabled>
+            Press Enter to Continue
+          </button>
+        </>
       )}
     </div>
   );
