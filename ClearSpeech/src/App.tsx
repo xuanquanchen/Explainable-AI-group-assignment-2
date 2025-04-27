@@ -1,4 +1,4 @@
-import { Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import HomePage from "./components/HomePage";
 import NoAIPage from "./components/NoAIPage";
 import AIOnlyPage from "./components/AIOnlyPage";
@@ -9,16 +9,24 @@ import HumanAIStatementPage from "./components/HumanAIStatementPage";
 
 function App() {
   return (
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/no-ai" element={<NoAIPage />} />
-        <Route path="/ai-only" element={<AIOnlyPage onComplete={(resultData) => console.log(resultData)} />} />
-        <Route path="/human-ai" element={<HumanAIPage />} />
-        <Route path="/survey" element={<SurveyPage onSubmitSurvey={(surveyData) => console.log(surveyData)} />} />
-        <Route path="/no-ai-statement" element={<NoAIStatementPage />} />
-        <Route path="/human-ai-statement" element={<HumanAIStatementPage />}
+    <Routes>
+      <Route index element={<HomePage />} />
+      <Route path="no-ai" element={<NoAIPage />} />
+      <Route
+        path="ai-only"
+        element={<AIOnlyPage onComplete={(d) => console.log(d)} />}
       />
-      </Routes>
+      <Route path="human-ai" element={<HumanAIPage />} />
+      <Route
+        path="survey"
+        element={<SurveyPage onSubmitSurvey={(d) => console.log(d)} />}
+      />
+      <Route path="no-ai-statement" element={<NoAIStatementPage />} />
+      <Route
+        path="human-ai-statement"
+        element={<HumanAIStatementPage />}
+      />
+    </Routes>
   );
 }
 
