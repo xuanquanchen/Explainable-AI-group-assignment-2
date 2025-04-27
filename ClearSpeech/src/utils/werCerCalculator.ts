@@ -1,6 +1,6 @@
 export function calculateWER(reference: string, hypothesis: string): number {
-  const refWords = reference.trim().split(/\s+/);
-  const hypWords = hypothesis.trim().split(/\s+/);
+  const refWords = normalize(reference).split(" ");
+  const hypWords = normalize(hypothesis).split(" ");
 
   const rLen = refWords.length;
   const hLen = hypWords.length;
@@ -30,4 +30,13 @@ export function calculateCER(reference: string, hypothesis: string): number {
   const refChars = reference.replace(/\s/g, "");
   const hypChars = hypothesis.replace(/\s/g, "");
   return calculateWER(refChars, hypChars);
+}
+
+
+function normalize(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[.,!?;:"'()\-]/g, "")  //remove punctuation marks
+    .replace(/\s+/g, " ") //merge multiple spaces
+    .trim();
 }
