@@ -37,13 +37,6 @@ export default function NoAIStatementPage() {
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = e => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const text = textareaRef.current?.value.trim() || "";
-      if (!text) {
-        window.alert(
-          "⚠️ Warning: You haven’t entered any transcript. This is just a reminder. In the real test, leaving it blank will restart the entire test."
-        );
-        return;
-      }
       setIsTiming(false);
     }
   };
@@ -84,7 +77,7 @@ export default function NoAIStatementPage() {
         <audio
           ref={sampleRef}
           controls
-          src="/Testing_Data/Easy/Easy1.wav"
+          src="/Testing_Data/sample.wav"
           className="audio-player"
           style={{ width: "100%" }}
         />

@@ -79,7 +79,7 @@ export default function HomePage() {
 
         <div className="task-block">
           <button
-            onClick={() => navigate("/human-ai")}
+            onClick={() => navigate("/human-ai-statement")}
             className="btn"
           >
             Human + AI Collaboration
