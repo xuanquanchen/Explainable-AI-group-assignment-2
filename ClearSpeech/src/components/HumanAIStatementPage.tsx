@@ -122,23 +122,25 @@ export default function HumanAIStatementPage() {
           style={{ width: "100%" }}
         />
 
-        <h3 style={{ marginTop: "1.5rem" }}>Sample Suggestion</h3>
-        <div
-          style={{
-            padding: "1rem",
-            border: "1px solid #ccc",
-            borderRadius: "0.5rem",
-            marginBottom: "1rem",
-            textAlign: "left",
-          }}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-        <p><strong>Ground Truth:</strong> {sampleTruth}</p>
-
         {/* Begin Editing Button */}
         {!showEditor && showBegin && <button className="btn" onClick={handleBegin}>Begin Editing</button>}
 
         {/* Alternatives Buttons */}
+        {showEditor && (
+          <>
+            <h3 style={{ marginTop: "1.5rem" }}>Sample Suggestion</h3>
+            <div
+              style={{
+                padding: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "0.5rem",
+                marginBottom: "1rem",
+                textAlign: "left",
+              }}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </>
+        )}
         {showEditor && uncertainPositions.map(pos => {
           const rawKey = cleanTokens[pos];
           const key = rawKey.replace(/[.,!?;:]/g, "");
@@ -208,9 +210,17 @@ export default function HumanAIStatementPage() {
         <div style={{ marginTop: "1rem", color: "#666", fontSize: "0.9rem" }}>
           (Press Enter after typing your transcript or after you click the text area)
         </div>
+
+        {showEditor && (
+          <>
+          <p><strong>Ground Truth:</strong> {sampleTruth}</p>
+          <p style={{ color: "#aa0000", fontWeight: 600 }}>We don't have ground truth show up in the real task</p>
+          </>
+        )}
       </div>
 
       {/* Start Test Button */}
+      {showEditor && (
       <button
         onClick={() => navigate("/human-ai")}
         className="btn"
@@ -218,6 +228,7 @@ export default function HumanAIStatementPage() {
       >
         Start Real 9-Clip Test
       </button>
+      )}
     </div>
   );
 }
