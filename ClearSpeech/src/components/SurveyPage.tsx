@@ -1,5 +1,7 @@
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../Utils/firebase";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface SurveyPageProps {
   onSubmitSurvey: (surveyData: { satisfaction: number; workload: number }) => void;
@@ -9,13 +11,28 @@ export default function SurveyPage({ onSubmitSurvey }: SurveyPageProps) {
   const [satisfaction, setSatisfaction] = useState(5);
   const [workload, setWorkload] = useState(5);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { sessionId } = (location.state as { sessionId: string }) || {}; 
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     const surveyData = {
       satisfaction,
       workload,
+      surveyAt: serverTimestamp(),
     };
-    onSubmitSurvey(surveyData);
+
+    if (!sessionId) {
+      console.error("❌ No sessionId in route state");
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "sessions", sessionId), surveyData);
+      console.log("✅ Survery saved");
+    } catch (error) {
+      console.error("Fail to save survey: ", error);
+    }
+    onSubmitSurvey({ satisfaction, workload });
     navigate("/");
   };
 

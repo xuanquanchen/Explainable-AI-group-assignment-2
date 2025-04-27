@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { db } from "../Utils/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface HumanAIPageProps {
   onComplete: (resultData: any) => void;
@@ -29,6 +32,7 @@ export default function HumanAIPage({ onComplete }: HumanAIPageProps) {
   const [transcription, setTranscription] = useState<string>(generateFakeHumanAITranscription());
   const [highlightedHTML, setHighlightedHTML] = useState<string>('');
   const [editedTranscription, setEditedTranscription] = useState<string>("");
+  const navigate = useNavigate();
 
   const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -42,14 +46,19 @@ export default function HumanAIPage({ onComplete }: HumanAIPageProps) {
     alert("Live recording feature is optional. Please upload an audio file for now.");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     const resultData = {
       taskType: "Human+AI",
       transcription: editedTranscription,
+      createdAt: serverTimestamp(),
     };
 
-    if (onComplete) {
-      onComplete(resultData);
+    try {
+      const docRef = await addDoc(collection(db, "sessions"), resultData);
+      console.log("✅ Session saved with ID:", docRef.id);
+      navigate("/survey", { state: { sessionId: docRef.id } });
+    } catch (error) {
+      console.error("Failed to save session:", error);
     }
   };
 

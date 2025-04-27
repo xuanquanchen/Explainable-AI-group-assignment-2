@@ -1,124 +1,191 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 import { useNavigate } from "react-router-dom"; // Add navigate
+import { db } from "../Utils/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import "../styles/Button.css";
+import "../styles/TextArea.css";
+import "../styles/AudioPlayer.css";
 
-interface NoAIPageProps {
-  onComplete: (resultData: any) => void;
-}
-
-const groundTruth = "This is the correct transcript of the audio.";
 
 export default function NoAIPage({ onComplete }: NoAIPageProps) {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
   const [transcription, setTranscription] = useState("");
-  const [startTime, setStartTime] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [groundTruth, setGroundTruth] = useState<string>("");
   const navigate = useNavigate(); // hook
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setAudioFile(file);
-      setAudioURL(URL.createObjectURL(file));
-      setStartTime(Date.now());
+  const [showStartBtn, setShowStartBtn] = useState(false);
+  const [showTextarea, setShowTextarea] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [results, setResults] = useState<Array<{
+    clipIndex: number;
+    wer: number;
+    cer: number;
+    durationSeconds: number;
+  }>>([]);
+
+  const audioList = [
+    "/Testing_Data/Easy/Easy1.wav",
+    "/Testing_Data/Easy/Easy2.wav",
+    "/Testing_Data/Easy/Easy3.wav",
+    "/Testing_Data/Medium/Medium1.wav",
+    "/Testing_Data/Medium/Medium2.wav",
+    "/Testing_Data/Medium/Medium3.wav",
+    "/Testing_Data/Hard/Hard1.wav",
+    "/Testing_Data/Hard/Hard2.wav",
+    "/Testing_Data/Hard/Hard3.wav",
+  ];
+
+  const transcriptPaths = [
+    "/Testing_Data/Easy/Easy1.txt",
+    "/Testing_Data/Easy/Easy2.txt",
+    "/Testing_Data/Easy/Easy3.txt",
+    "/Testing_Data/Medium/Medium1.txt",
+    "/Testing_Data/Medium/Medium2.txt",
+    "/Testing_Data/Medium/Medium3.txt",
+    "/Testing_Data/Hard/Hard1.txt",
+    "/Testing_Data/Hard/Hard2.txt",
+    "/Testing_Data/Hard/Hard3.txt",
+  ];
+
+  useEffect(() => {
+      if (showTextarea) {
+        setTimeout(() => textareaRef.current?.focus(), 0);
+      }
+    }, [showTextarea]);
+
+    
+  useEffect(() => {
+    fetch(transcriptPaths[currentIndex])
+      .then((res) => res.text())
+      .then((txt) => setGroundTruth(txt.trim()))
+      .catch((err) => {
+        console.error("Failed to load transcript:", err);
+        setGroundTruth("");
+      });
+  }, [currentIndex]);
+
+  const onAudioEnded = () => setShowStartBtn(true);
+
+  const handleBeginTranscription = () => {
+    setStartTime(performance.now());
+    setShowTextarea(true);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && showStartBtn && !showTextarea) {
+        handleBeginTranscription();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showStartBtn, showTextarea, handleBeginTranscription]);
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+
+    if (!transcription.trim()) {
+      alert("No text entered. Test aborted; please restart from the beginning.");
+      return navigate("/");
     }
-  };
 
-  const handleStartRecording = () => {
-    alert("Live recording is optional. Please upload an audio file for now.");
-  };
+    const endTime = performance.now();
+    const durationSeconds = Number(((endTime - startTime) / 1000).toFixed(2));
 
-  const handleSubmit = () => {
-    const endTime = Date.now();
-    const durationSeconds = startTime ? Math.round((endTime - startTime) / 1000) : 0;
     const wer = calculateWER(groundTruth, transcription);
     const cer = calculateCER(groundTruth, transcription);
 
-    const resultData = {
-      taskType: "No AI",
-      transcription,
-      startTime: startTime || endTime,
-      endTime,
-      durationSeconds,
-      wer,
-      cer,
-    };
+    const newResult = { clipIndex: currentIndex, wer, cer, durationSeconds,transcription };
 
-    if (onComplete) {
-      onComplete(resultData);
+    // move to next clip or finish
+    if (currentIndex < audioList.length - 1) {
+      setResults((prev) => [...prev, newResult]);
+      const next = currentIndex + 1;
+      setCurrentIndex(next);
+      setTranscription("");
+      setShowTextarea(false);
+      setShowStartBtn(false);
+      // auto-play next clip
+      setTimeout(() => {
+        audioRef.current?.load();
+        audioRef.current
+          ?.play()
+          .catch((err) => {
+            console.log('play interrupted:', err);
+          });
+      }, 0);
+    } else {
+      const finalResults = [...results, {
+        wer,
+        cer,
+        durationSeconds,
+        transcription,
+      }];
+
+      const sessionDoc = {
+        taskType: "No AI",
+        clips: finalResults,
+        createdAt: serverTimestamp(),
+      };
+  
+      try {
+        const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
+        navigate("/survey", { state: { sessionId: docRef.id } });
+      } catch (err) {
+        console.error("Fail to save session :", err);
+      }
     }
-
-    navigate("/survey"); // Redirect immediately to survey page
   };
-
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-6">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-10 flex flex-col space-y-8">
-
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
         {/* Title */}
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-2">
+        <h1 style={{ marginBottom: '1rem', fontSize: '2rem' }}>
           🎙️ Audio Transcription
         </h1>
-        <p className="text-center text-gray-500 text-md mb-6">
-          Upload an audio file or record live. Listen carefully and type what you hear.
-        </p>
 
-        {/* Upload and Record */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-          <label className="w-full md:w-1/2 flex flex-col items-center justify-center border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 rounded-xl p-6 cursor-pointer transition">
-            <span className="text-blue-500 font-semibold mb-2">Upload Audio</span>
-            <input type="file" accept="audio/*" className="hidden" onChange={handleUploadAudio} />
-            <span className="text-xs text-blue-400">Accepted formats: .mp3, .wav</span>
-          </label>
-
-          <button
-            onClick={handleStartRecording}
-            className="w-full md:w-1/2 bg-red-400 hover:bg-red-500 text-white py-4 rounded-xl font-semibold shadow-md transition text-lg"
-          >
-            Record Live (Coming Soon)
-          </button>
-        </div>
-
-        {/* Audio Player */}
-        <div className="flex flex-col space-y-2">
-          <h2 className="text-lg font-semibold text-gray-700">▶️ Audio Playback</h2>
-          {audioURL ? (
-            <audio
-              ref={audioRef}
-              controls
-              className="w-full rounded-xl border-2 border-gray-300 shadow-md transition hover:shadow-lg"
-            >
-              <source src={audioURL} type="audio/mp3" />
-              Your browser does not support the audio element.
-            </audio>
-          ) : (
-            <div className="text-center text-gray-400 text-sm py-6 border-2 border-dashed border-gray-300 rounded-xl">
-              No audio uploaded yet.
-            </div>
-          )}
-        </div>
+        {/* Audio player for current clip */}
+        <audio
+          className="audio-player"
+          ref={audioRef}
+          src={audioList[currentIndex]}
+          controls
+          onEnded={onAudioEnded}
+        />
 
         {/* Transcription Box */}
-        <div className="flex flex-col space-y-2">
-          <h2 className="text-lg font-semibold text-gray-700">✏️ Type Your Transcription</h2>
+        {showStartBtn && !showTextarea && (
+          <button
+          onClick={handleBeginTranscription}
+          className="btn"
+          >
+            Begin Transcription (Press Enter or Click to Continue)
+          </button>
+        )}
+
+      {/* Textarea for transcription */}
+      {showTextarea && (
+        <>
           <textarea
+            className="textarea"
+            ref={textareaRef}
             value={transcription}
             onChange={(e) => setTranscription(e.target.value)}
-            placeholder="Type everything you hear here..."
-            className="w-full h-72 p-4 rounded-2xl border-2 border-gray-300 focus:outline-none focus:ring-4 focus:ring-blue-300 resize-none shadow-inner text-md"
-          ></textarea>
-        </div>
+            onKeyDown={handleKeyDown}
+            placeholder="Type transcript here, then press Enter to submit"
+          />
 
-        {/* Finalize Button */}
-        <button
-          onClick={handleSubmit}
-          className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-xl transition"
-        >
-          Finalize and Continue
-        </button>
-
-      </div>
+          <button className="btn" style={{ marginTop: "1rem" }} disabled>
+            Press Enter to Continue
+          </button>
+        </>
+      )}
     </div>
   );
 }

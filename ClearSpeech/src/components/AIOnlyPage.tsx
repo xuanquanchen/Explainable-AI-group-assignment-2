@@ -1,5 +1,7 @@
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { db } from "../Utils/firebase";
 
 interface AIOnlyPageProps {
   onComplete: (resultData: any) => void;
@@ -38,17 +40,20 @@ export default function AIOnlyPage({ onComplete }: AIOnlyPageProps) {
     setAITranscription(generateFakeTranscription());
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     const resultData = {
       taskType: "AI Only",
       transcription: aiTranscription,
+      createdAt: serverTimestamp(),
     };
 
-    if (onComplete) {
-      onComplete(resultData);
+    try {
+      const docRef = await addDoc(collection(db, "sessions"), resultData);
+      navigate("/survey", { state: { sessionId: docRef.id } });
     }
-
-    navigate("/survey"); // Redirect to survey page
+    catch (error) {
+      console.error("Fail to save: ", error);
+    }
   };
 
   return (
