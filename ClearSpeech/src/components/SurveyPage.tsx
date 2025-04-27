@@ -1,5 +1,5 @@
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../utils/firebase";
+import { db } from "../Utils/firebase";
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 

@@ -7,6 +7,7 @@ import "../styles/AudioPlayer.css";
 export default function NoAIStatementPage() {
   const navigate = useNavigate();
   const sampleRef = useRef<HTMLAudioElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
 
@@ -28,7 +29,23 @@ export default function NoAIStatementPage() {
   }, [isTiming]);
 
   const handleBeginTranscription = () => {
+    setTimer(0);
     setIsTiming(true);
+    textareaRef.current?.focus();
+  };
+
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const text = textareaRef.current?.value.trim() || "";
+      if (!text) {
+        window.alert(
+          "⚠️ Warning: You haven’t entered any transcript. This is just a reminder. In the real test, leaving it blank will restart the entire test."
+        );
+        return;
+      }
+      setIsTiming(false);
+    }
   };
 
   return (
@@ -94,8 +111,10 @@ export default function NoAIStatementPage() {
         {/* Textarea + Submit Hint */}
         <div>
           <textarea
+            ref={textareaRef}
             className="textarea"
             placeholder="Type transcript here, then press Enter to submit"
+            onKeyDown={handleKeyDown}
           />
           <div style={{ marginTop: "1rem", color: "#666", fontSize: "0.9rem" }}>
             (Press Enter after typing your transcript)
