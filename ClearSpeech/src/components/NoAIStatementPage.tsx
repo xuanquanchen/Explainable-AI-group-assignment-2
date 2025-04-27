@@ -4,6 +4,8 @@ import "../styles/Button.css";
 import "../styles/TextArea.css";
 import "../styles/AudioPlayer.css";
 
+const base = import.meta.env.BASE_URL;
+
 export default function NoAIStatementPage() {
   const navigate = useNavigate();
   const sampleRef = useRef<HTMLAudioElement>(null);
@@ -77,7 +79,7 @@ export default function NoAIStatementPage() {
         <audio
           ref={sampleRef}
           controls
-          src="/Testing_Data/sample.wav"
+          src={`${base}Testing_Data/sample.wav`}
           className="audio-player"
           style={{ width: "100%" }}
         />

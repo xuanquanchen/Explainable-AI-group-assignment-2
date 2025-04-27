@@ -4,6 +4,8 @@ import "../styles/Button.css";
 import "../styles/TextArea.css";
 import "../styles/AudioPlayer.css";
 
+const base = import.meta.env.BASE_URL;
+
 const sampleAlternatives: Record<string, string[]> = {
   listening: ["listening", "listing", "lightening"],
   divided:   ["divided", "decided", "derived"],
@@ -117,7 +119,7 @@ export default function HumanAIStatementPage() {
         <audio
           ref={sampleRef}
           controls
-          src="/Testing_Data/sample.wav"
+          src={`${base}Testing_Data/sample.wav`}
           className="audio-player"
           style={{ width: "100%" }}
         />
