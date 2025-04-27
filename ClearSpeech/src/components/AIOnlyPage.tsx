@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../utils/firebase";
 import { audioList, transcriptPaths } from "../config/audioClips";
-import { fakeTranscriptions } from "../config/aiOnlyFakeOutput";
+import { aiOnlyTranscripts } from "../config/aiOnlyFakeOutput";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 
 export default function AIOnlyPage() {
@@ -13,6 +13,7 @@ export default function AIOnlyPage() {
 
   const [clipIndex, setClipIndex] = useState(0);
   const [aiTranscription, setAITranscription] = useState("");
+  const [regenerateCount, setRegenerateCount] = useState(0);
   const [groundTruth, setGroundTruth] = useState("");
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
@@ -79,8 +80,16 @@ export default function AIOnlyPage() {
   }, [isTiming]);
 
   const generateFakeTranscript = () => {
-    setAITranscription(fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)]);
+    const variations = aiOnlyTranscripts[clipIndex];
+    if (variations && variations.length > 0) {
+      const randomIndex = Math.floor(Math.random() * variations.length);
+      setRegenerateCount(randomIndex); // start at the randomly picked one
+      setAITranscription(variations[randomIndex]);
+    } else {
+      setAITranscription("AI-generated transcription not available.");
+    }
   };
+  
 
   const handleAudioEnded = () => {
     setAudioEnded(true);
