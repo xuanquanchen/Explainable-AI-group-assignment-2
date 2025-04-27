@@ -4,6 +4,7 @@ import NoAIPage from "./components/NoAIPage";
 import AIOnlyPage from "./components/AIOnlyPage";
 import HumanAIPage from "./components/HumanAIPage";
 import SurveyPage from "./components/SurveyPage";
+import NoAIStatementPage from "./components/NoAIStatementPage";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/ai-only" element={<AIOnlyPage onComplete={(resultData) => console.log(resultData)} />} />
         <Route path="/human-ai" element={<HumanAIPage onComplete={(resultData) => console.log(resultData)} />} />
         <Route path="/survey" element={<SurveyPage onSubmitSurvey={(surveyData) => console.log(surveyData)} />} />
+        <Route path="/no-ai-statement" element={<NoAIStatementPage />} />
       </Routes>
   );
 }
