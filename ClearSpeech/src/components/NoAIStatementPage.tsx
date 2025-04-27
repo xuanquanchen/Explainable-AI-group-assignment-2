@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Button.css";
 import "../styles/TextArea.css";
@@ -7,109 +7,86 @@ import "../styles/AudioPlayer.css";
 export default function NoAIStatementPage() {
   const navigate = useNavigate();
   const sampleRef = useRef<HTMLAudioElement>(null);
-  const [timer, setTimer] = useState(0);
-  const [isTiming, setIsTiming] = useState(false);
 
+  // 自动播放示例音频（可选）
   useEffect(() => {
     sampleRef.current?.play().catch(() => {});
   }, []);
 
-  // Start timer only after button click
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isTiming) {
-      interval = setInterval(() => {
-        setTimer((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isTiming]);
-
-  const handleBeginTranscription = () => {
-    setIsTiming(true);
-  };
-
   return (
     <div style={{ padding: "2rem", textAlign: "center" }}>
-      <h1 className="page-title">
-        Manual Transcription Overview
+      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
+        Manual Transcription — Overview
       </h1>
 
-      {/* Top Instructions */}
-      <div style={{ maxWidth: "650px", margin: "0 auto", textAlign: "left", lineHeight: 1.7 }}>
-        <p><strong>You will transcribe 9 audio clips with 3 difficulty levels</strong></p>
+      <p style={{ maxWidth: "600px", margin: "0 auto 1.5rem", lineHeight: 1.5 }}>
+        In the next step you will complete <strong>9 transcription tasks</strong>:
+        <br />
+        <br />
 
-        <p><strong>For each clip:</strong></p>
-        <ul style={{ paddingLeft: "1.2rem", marginBottom: "2rem" }}>
-          <li>Play, pause, and replay freely.</li>
-          <li>After the first listen, click "<code>Begin Transcription</code>" Button.</li>
-          <li>Timer starts and the text box will auto-focus.</li>
-          <li>Type your transcript and press "<kbd>Enter</kbd>" to submit and move to next.</li>
-        </ul>
+        <ol style={{ maxWidth: 600, margin: "0 auto 1.5rem", textAlign: "left" }}>
+            <li>3 Easy clips </li>
+            <li>3 Medium clips </li>
+            <li>3 Hard clips </li>
+        </ol>
 
-        <p style={{ color: "#aa0000", fontWeight: 600 }}>
-          ⚠️ You must type something for each clip. Submitting empty text restarts the entire test.
-        </p>
-      </div>
+        For each clip:
+        <br />
 
-      {/* Sample Clip Section */}
-      <div style={{
-        backgroundColor: "#d8dada",
-        borderRadius: "8px",
-        padding: "1.5rem",
-        maxWidth: "800px",
-        margin: "2rem auto"
-      }}>
-        <h2 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>Sample Clip</h2>
+        <ol style={{ maxWidth: 600, margin: "0 auto 1.5rem", textAlign: "left" }}>
+            <li>You may play, pause, or replay the audio as much as you like.</li>
+            <li>
+                After you finish listening once, click the{" "}
+                <code>Begin Transcription</code> button or press <kbd>Enter</kbd>.
+            </li>
+            <li>The timer starts and the text box will automatically gain focus.</li>
+            <li>Type the transcript and press <kbd>Enter</kbd> to submit. The button below is just a prompt</li>
+        </ol>
+        After all 9 clips you will see a short survey. Filling it out and clicking “Submit” completes the test.
+      </p>
 
+      <p>
+        Please ensure you enter a transcript for each clip. If you submit without typing any text, that attempt will be considered invalid, you will be returned to the beginning of the test, and none of its results will be recorded.
+      </p>
+
+      {/* 示例音频播放器 */}
+      <div style={{ marginBottom: "2rem" }}>
+        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>Sample Clip</h2>
         <audio
           ref={sampleRef}
           controls
           src="/Testing_Data/Easy/Easy1.wav"
           className="audio-player"
-          style={{ width: "100%" }}
         />
+      </div>
 
-        {/* Instruction + Button */}
-        <div style={{ marginTop: "1.5rem", fontSize: "1rem", color: "#333" }}>
-          The Begin button will show up after the clip ends playing. Click the button to start transcribing:
-        </div>
+      {/* 示例 Begin 按钮 */}
+      <div style={{ marginBottom: "1rem" }}>
+        <button className="btn">
+          Begin Transcription (Press Enter)
+        </button>
+      </div>
 
-        <div style={{ margin: "1rem 0" }}>
-          <button className="btn" onClick={handleBeginTranscription}>
-            Begin Transcription for this clip
+      {/* 示例文本框 + 提示按钮 */}
+      <div>
+        <textarea
+          className="textarea"
+          placeholder="Type transcript here, then press Enter to submit"
+        />
+        <div style={{ marginTop: "1rem" }}>
+          <button className="btn" disabled>
+            Press Enter to Continue
           </button>
-        </div>
-
-        {/* Timer Display */}
-        <div style={{ fontSize: "1rem", color: "#555", marginBottom: "1.5rem" }}>
-          Timer will start after the transcription begins, ends when Enter is pressed.
-        </div>
-        <div style={{ fontSize: "1rem", color: "#555", marginBottom: "1.5rem" }}>
-          Current Timer: {timer}s
-        </div>
-
-        {/* Textarea + Submit Hint */}
-        <div>
-          <textarea
-            className="textarea"
-            placeholder="Type transcript here, then press Enter to submit"
-          />
-          <div style={{ marginTop: "1rem", color: "#666", fontSize: "0.9rem" }}>
-            (Press Enter after typing your transcript)
-          </div>
         </div>
       </div>
 
-      {/* Start Test Button */}
+      {/* 开始正式测试 */}
       <button
         onClick={() => navigate("/no-ai")}
         className="btn"
         style={{ marginTop: "2rem" }}
       >
-        Start Real 9-Clip Test
+        Start the 9-Clip Test
       </button>
     </div>
   );
