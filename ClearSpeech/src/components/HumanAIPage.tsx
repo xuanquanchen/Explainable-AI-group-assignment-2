@@ -27,14 +27,17 @@ export default function HumanAIPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showBegin, setShowBegin] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  
   const [startTime, setStartTime] = useState(0);
+  const [timer, setTimer] = useState<number>(0);
+  const [isTiming, setIsTiming] = useState<boolean>(false);
 
   const [tokens, setTokens] = useState<string[]>([]);
-  const [rawTokens, setRawTokens] = useState<string[]>([]);
   const [uncertainPositions, setUncertainPositions] = useState<number[]>([]);
 
   const [html, setHtml] = useState("");
   const [custom, setCustom] = useState("");
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [groundTruth, setGroundTruth] = useState("");
@@ -47,7 +50,7 @@ export default function HumanAIPage() {
       duration: number;
     }>
   >([]);
-
+  
   // load ground truth & generate AI when index changes
   useEffect(() => {
     fetch(transcriptPaths[currentIndex])
@@ -69,17 +72,20 @@ export default function HumanAIPage() {
 
     setCustom(cleanTokens.join(" "));
 
-    setHtml(
-      cleanTokens.map((word,i) =>
-          idxs.includes(i)
-          ? `<u style="background:#FEF3C7">${word.replace(/\[|\]/g,"")}</u>`
-          : word
-        )
-      .join(" ")
-    );
+    setHtml(getHighlightedHTML(suggestion));
 
     setShowBegin(false);
     setShowEditor(false);
+    setIsTiming(false);
+    setTimer(0);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.load();
+    }
+    setShowBegin(false);
   }, [currentIndex]);
 
   // after audio ends, show Begin Editing
@@ -88,6 +94,7 @@ export default function HumanAIPage() {
   // start editor → start timer + focus textarea
   const beginEdit = () => {
     setStartTime(performance.now());
+    setIsTiming(true);
     setShowEditor(true);
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
@@ -103,22 +110,37 @@ export default function HumanAIPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showBegin, showEditor]);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isTiming) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => interval && clearInterval(interval);
+  }, [isTiming]);
+
   // handle submit in textarea
   const onKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter") return;
+    if (!isTiming) return;
     e.preventDefault();
+
     if (!custom.trim()) {
       alert("You must enter or edit some text. Test aborted.");
       navigate("/");
       return;
     }
 
+    setIsTiming(false);
+    textareaRef.current?.blur();
+
     const end = performance.now();
     const duration = Number(((end - startTime) / 1000).toFixed(2));
     const wer = calculateWER(groundTruth, custom);
     const cer = calculateCER(groundTruth, custom);
 
-    const entry = {
+    const newResult = {
       clipIndex: currentIndex,
       transcription: custom,
       wer,
@@ -127,29 +149,30 @@ export default function HumanAIPage() {
     };
 
     if (currentIndex < audioList.length - 1) {
-      setResults((r) => [...r, entry]);
-      // next clip
+      setResults((prev) => [...prev, newResult]);
+      setShowEditor(false);
+      setShowBegin(false);
       setCurrentIndex((i) => i + 1);
       // autoplay next
       setTimeout(() => {
+        audioRef.current?.pause();
         audioRef.current?.load();
         audioRef.current?.play().catch(() => {});
       }, 0);
     } else {
       // finish all → save session
+      const finalResults = [...results, newResult];
       const sessionDoc = {
         taskType: "Human+AI",
-        clips: [...results, entry],
+        clips: finalResults,
         createdAt: serverTimestamp(),
       };
+
       try {
-        const docRef = await addDoc(
-          collection(db, "sessions"),
-          sessionDoc
-        );
+        const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
         navigate("/survey", { state: { sessionId: docRef.id } });
-      } catch {
-        console.error("Failed to save");
+      } catch (err) {
+        console.error("Failed to save session: ", err);
       }
     }
   };
@@ -172,7 +195,7 @@ export default function HumanAIPage() {
 
       {!showEditor && showBegin && (
         <button onClick={beginEdit} className="btn">
-          Begin Editing (Press Enter)
+          Begin Editing
         </button>
       )}
 
@@ -230,21 +253,22 @@ export default function HumanAIPage() {
             );
           })}
 
-        {/* Customize */}
-        <textarea
-          ref={textareaRef}
-          className="textarea"
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Customize or edit the transcript, then press Enter"
-        />
+          {/* Timer */}
+          <div style={{ fontSize: "1rem", color: "#555", margin: "1rem 0" }}>
+            Current Timer: {timer}s
+          </div>
 
-        <div style={{ marginTop: "1rem" }}>
-          <button className="btn" disabled>
-            Press Enter to Continue
-          </button>
-        </div>
+          <p>Move the mouse to the text area below click it and press Enter to Continue</p>
+
+          {/* Customize */}
+          <textarea
+            ref={textareaRef}
+            className="textarea"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Customize or edit the transcript, then press Enter"
+          />
       </div>
       )}
     </div>
