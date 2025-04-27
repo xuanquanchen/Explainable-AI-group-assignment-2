@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 import { useNavigate } from "react-router-dom"; // Add navigate
-import { db } from "../Utils/firebase";
+import { db } from "../utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { audioList, transcriptPaths } from "../config/audioClips";
 import "../styles/Button.css";
@@ -14,14 +14,15 @@ export default function NoAIPage() {
   const [startTime, setStartTime] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [groundTruth, setGroundTruth] = useState<string>("");
-  const navigate = useNavigate(); // hook
+  const navigate = useNavigate(); 
   const [currentIndex, setCurrentIndex] = useState(0);
-
   const [showStartBtn, setShowStartBtn] = useState(false);
   const [showTextarea, setShowTextarea] = useState(false);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  const [timer, setTimer] = useState(0);
+  const [isTiming, setIsTiming] = useState(false);
+  const [clipIndex, setClipIndex] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [results, setResults] = useState<Array<{
     clipIndex: number;
     wer: number;
@@ -29,11 +30,40 @@ export default function NoAIPage() {
     durationSeconds: number;
   }>>([]);
 
+  // Auto-play audio when clip changes
   useEffect(() => {
-      if (showTextarea) {
-        setTimeout(() => textareaRef.current?.focus(), 0);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((error) => {
+        console.log("Autoplay blocked:", error);
+      });
+    }
+    setIsTiming(false); // Only start timer when user clicks
+    setTimer(0); // Reset timer for new clip
+    setTranscription(""); // Clear previous transcription
+  }, [clipIndex]);
+
+  // Timer effect
+  useEffect(() => {
+    if (isTiming) {
+      intervalRef.current = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }, [showTextarea]);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isTiming]);
 
     
   useEffect(() => {
@@ -46,11 +76,14 @@ export default function NoAIPage() {
       });
   }, [currentIndex]);
 
+
   const onAudioEnded = () => setShowStartBtn(true);
 
   const handleBeginTranscription = () => {
     setStartTime(performance.now());
     setShowTextarea(true);
+    setTimer(0);    // Reset timer to 0
+    setIsTiming(true);
   };
 
   useEffect(() => {
@@ -66,6 +99,8 @@ export default function NoAIPage() {
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    setIsTiming(false);  // Pause timer
+    setTimer(0);         // Reset timer to 0 visually
 
     if (!transcription.trim()) {
       alert("No text entered. Test aborted; please restart from the beginning.");
@@ -128,6 +163,8 @@ export default function NoAIPage() {
         </h1>
 
         {/* Audio player for current clip */}
+        <section style={{ marginBottom: '30px' }}>
+          <h2>Audio Clip</h2>
         <audio
           className="audio-player"
           ref={audioRef}
@@ -135,14 +172,20 @@ export default function NoAIPage() {
           controls
           onEnded={onAudioEnded}
         />
+        </section>
 
         {/* Transcription Box */}
+        <section style={{ marginBottom: '30px' }}>
+          <h2>Transcription</h2>
+          <div style={{ fontSize: "1rem", color: "#555", marginBottom: "1.5rem" }}>
+          Timer: {timer}s
+        </div>
         {showStartBtn && !showTextarea && (
           <button
           onClick={handleBeginTranscription}
           className="btn"
           >
-            Begin Transcription (Press Enter or Click to Continue)
+            Begin Transcription
           </button>
         )}
 
@@ -158,11 +201,18 @@ export default function NoAIPage() {
             placeholder="Type transcript here, then press Enter to submit"
           />
 
-          <button className="btn" style={{ marginTop: "1rem" }} disabled>
-            Press Enter to Continue
-          </button>
+        {/* Submit Instruction Text */}
+          <div style={{
+            marginTop: "1rem",
+            fontSize: "1rem",
+            fontWeight: "bold",
+          }}>
+          Press Enter to submit
+        </div>
         </>
+        
       )}
+      </section>
     </div>
   );
 }

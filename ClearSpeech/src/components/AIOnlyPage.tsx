@@ -1,7 +1,7 @@
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
-import { db } from "../Utils/firebase";
+import { db } from "../utils/firebase";
 
 interface AIOnlyPageProps {
   onComplete: (resultData: any) => void;
