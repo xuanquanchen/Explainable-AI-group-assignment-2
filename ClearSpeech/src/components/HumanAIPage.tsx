@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../Utils/firebase";
+import { db } from "../utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 import { audioList, transcriptPaths } from "../config/audioClips";

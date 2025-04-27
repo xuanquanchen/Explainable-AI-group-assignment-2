@@ -9,6 +9,7 @@ import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 export default function AIOnlyPage() {
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [clipIndex, setClipIndex] = useState(0);
   const [aiTranscription, setAITranscription] = useState("");
@@ -16,6 +17,7 @@ export default function AIOnlyPage() {
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [audioEnded, setAudioEnded] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [results, setResults] = useState<Array<{
     clipIndex: number;
@@ -25,19 +27,10 @@ export default function AIOnlyPage() {
     cer: number;
   }>>([]);
 
-  // Fetch audio and ground truth on clip change
   useEffect(() => {
     if (!hasStarted) return;
 
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((error) => console.log("Autoplay blocked:", error));
-    }
-
-    generateAndStart();
+    generateFakeTranscript();
 
     fetch(transcriptPaths[clipIndex])
       .then((res) => res.text())
@@ -46,6 +39,27 @@ export default function AIOnlyPage() {
         console.error("Failed to load transcript:", err);
         setGroundTruth("");
       });
+
+    setAudioEnded(false); // reset audio ended state
+    setIsTiming(false); // stop timer
+    setTimer(0); // reset timer
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.load();
+  
+      const checkAndPlay = () => {
+        if (audio.readyState >= 1) {
+          // Metadata loaded
+          audio.play().catch((err) => console.log("Autoplay blocked:", err));
+        } else {
+          // Metadata not ready yet, check again soon
+          setTimeout(checkAndPlay, 50);
+        }
+      };
+  
+      checkAndPlay();
+  }
   }, [clipIndex, hasStarted]);
 
   useEffect(() => {
@@ -64,29 +78,32 @@ export default function AIOnlyPage() {
     };
   }, [isTiming]);
 
-  const generateFakeTranscription = () => {
-    return fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)];
+  const generateFakeTranscript = () => {
+    setAITranscription(fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)]);
   };
 
-  const generateAndStart = () => {
-    setAITranscription(generateFakeTranscription());
-    setTimer(0);
-    setIsTiming(true);
+  const handleAudioEnded = () => {
+    setAudioEnded(true);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 300);
+    setIsTiming(true); // Start timer when audio finished
   };
 
   const handleRegenerate = () => {
-    setIsTiming(false);
-    setTimer(0);
-    setAITranscription(generateFakeTranscription());
+    if (!audioEnded) return;
+    generateFakeTranscript();
     setTimeout(() => {
-      setIsTiming(true);
-    }, 200);
+      textareaRef.current?.focus();
+    }, 100);
   };
+  
 
   const handleNextClip = async () => {
+    if (!audioEnded) return;
     setIsTiming(false);
-    const durationSeconds = Number(timer.toFixed(2));
 
+    const durationSeconds = Number(timer.toFixed(2));
     const wer = calculateWER(groundTruth, aiTranscription);
     const cer = calculateCER(groundTruth, aiTranscription);
 
@@ -103,9 +120,7 @@ export default function AIOnlyPage() {
     if (clipIndex < audioList.length - 1) {
       setResults(updatedResults);
       setClipIndex((prev) => prev + 1);
-      setTimer(0);
     } else {
-      // Last clip
       try {
         const sessionDoc = {
           taskType: "AI Only",
@@ -118,24 +133,32 @@ export default function AIOnlyPage() {
         console.error("Failed to save session:", error);
       }
     }
+
+    setTimer(0); // Reset timer after pressing Enter
   };
 
   const handleStartTest = () => {
     setHasStarted(true);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && audioEnded) {
+      e.preventDefault();
+      handleNextClip();
+    }
+  };
+
   return (
     <div className="page-container bg-gradient-to-br from-green-50 to-white p-8">
-      
       <h1 className="page-title">🤖 AI-Only Transcription Test</h1>
 
       {!hasStarted ? (
         <>
           <ul style={{ paddingLeft: "1.2rem", marginBottom: "2rem", textAlign: "left", maxWidth: "600px" }}>
             <li>Listen to 9 sample clips.</li>
-            <li>Review AI-generated transcriptions. Regenerate if unsatisfied.</li>
-            <li>Timer starts when the AI transcription is generated.</li>
-            <li>Click Next to continue to the next clip.</li>
+            <li>After the clip finishes, the AI transcription will appear.</li>
+            <li>Press <kbd>Enter</kbd> to accept and move to the next clip.</li>
+            <li>You can regenerate the AI text if unsatisfied before moving on.</li>
           </ul>
 
           <button
@@ -146,52 +169,55 @@ export default function AIOnlyPage() {
           </button>
         </>
       ) : (
-        <div className="w-full max-w-6xl flex flex-col items-center space-y-8 mt-10">
-          <div className="task-block w-full space-y-6">
-            <h2 className="text-xl font-semibold text-gray-700 text-center">
+            <div style={{ padding: '2rem', textAlign: 'center' }}>            
+            <h2 style={{ marginBottom: '1rem', fontSize: '2rem' }}>
               Clip {clipIndex + 1} of {audioList.length}
             </h2>
-
+          
             {/* Audio Player */}
             <audio
               ref={audioRef}
-              controls
               src={audioList[clipIndex]}
               className="audio-player"
+              controls
+              onEnded={handleAudioEnded}
             />
 
             {/* Timer */}
-            <div className="text-lg text-gray-600 text-center">
-              Timer: {timer}s
-            </div>
+            {audioEnded && (
+              <div className="text-lg text-gray-600 text-center">
+                Timer: {timer}s
+              </div>
+            )}
 
             {/* AI Transcription */}
-            <textarea
-              value={aiTranscription}
-              readOnly
-              className="textarea"
-              placeholder="AI-generated transcription appears here."
-            />
+            {audioEnded && (
+              <>
+                <textarea
+                  ref={textareaRef}
+                  value={aiTranscription}
+                  readOnly
+                  className="textarea"
+                  placeholder="AI-generated transcription appears here."
+                  onKeyDown={handleKeyDown}
+                />
 
-            {/* Buttons */}
-            <div className="flex flex-col md:flex-row gap-6 justify-center w-full mt-6">
-              <button
-                onClick={handleRegenerate}
-                className="btn bg-yellow-400 hover:bg-yellow-500 w-full md:w-auto py-3 px-6"
-              >
-                Regenerate Transcription
-              </button>
+                {/* Regenerate Button */}
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={handleRegenerate}
+                    className="btn bg-yellow-400 hover:bg-yellow-500 w-full max-w-sm py-3"
+                  >
+                    Regenerate AI Transcription
+                  </button>
+                </div>
 
-              <button
-                onClick={handleNextClip}
-                className="btn bg-green-500 hover:bg-green-600 w-full md:w-auto py-3 px-6 text-lg"
-              >
-                {clipIndex === audioList.length - 1
-                  ? "Accept and Finish Test"
-                  : "Accept and Next Clip"}
-              </button>
-            </div>
-          </div>
+                <div style={{ marginTop: "1rem", fontSize: "1rem", fontWeight: "bold", textAlign: "center" }}>
+                  Press Enter to accept and move to next clip
+                </div>
+              </>
+            )}
+          
         </div>
       )}
     </div>
