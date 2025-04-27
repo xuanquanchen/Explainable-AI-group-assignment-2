@@ -7,7 +7,6 @@ import SurveyPage from "./components/SurveyPage";
 
 function App() {
   return (
-    <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/no-ai" element={<NoAIPage onComplete={(resultData) => console.log(resultData)} />} />
@@ -15,7 +14,6 @@ function App() {
         <Route path="/human-ai" element={<HumanAIPage onComplete={(resultData) => console.log(resultData)} />} />
         <Route path="/survey" element={<SurveyPage onSubmitSurvey={(surveyData) => console.log(surveyData)} />} />
       </Routes>
-    </Router>
   );
 }
 
