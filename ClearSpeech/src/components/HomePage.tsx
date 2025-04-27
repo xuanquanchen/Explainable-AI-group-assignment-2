@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { db } from "../utils/firebase";
+import { db } from "../Utils/firebase";
 import {
   collection,
   query,
@@ -41,10 +41,10 @@ export default function HomePage() {
 
   return (
     <div className="page-container">
-      <h1 className="page-title">🎤 ClearSpeech AI </h1>
+      <h1 className="page-title">🎤 ClearSpeech AI — Select Task</h1>
 
       <p className="page-subtitle">
-        Thank you for participating our transcription test!
+        Enjoy your listening test! 🎧
       </p>
 
       <p className="disclaimer">
