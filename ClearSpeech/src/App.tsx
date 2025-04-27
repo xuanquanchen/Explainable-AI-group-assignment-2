@@ -10,9 +10,9 @@ function App() {
   return (
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/no-ai" element={<NoAIPage onComplete={(resultData) => console.log(resultData)} />} />
+        <Route path="/no-ai" element={<NoAIPage />} />
         <Route path="/ai-only" element={<AIOnlyPage onComplete={(resultData) => console.log(resultData)} />} />
-        <Route path="/human-ai" element={<HumanAIPage onComplete={(resultData) => console.log(resultData)} />} />
+        <Route path="/human-ai" element={<HumanAIPage />} />
         <Route path="/survey" element={<SurveyPage onSubmitSurvey={(surveyData) => console.log(surveyData)} />} />
         <Route path="/no-ai-statement" element={<NoAIStatementPage />} />
       </Routes>
