@@ -1,23 +1,16 @@
-import { useState } from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import AIOnly from './pages/AIOnly'
 import HumanOnly from './pages/HumanOnly'
 import Teaming from './pages/Teaming'
-import './App.css'
 
-function App() {
-
-  return (
-    <>
+export function Router() {
+    return (
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/ai" element={<AIOnly />} />
         <Route path="/human" element={<HumanOnly />} />
-        <Route path="/teaming" element={<Teaming />} />
+        <Route path="/hybrid" element={<Teaming />} />
       </Routes>
-    </>
-  )
-}
-
-export default App
+    )
+  }
