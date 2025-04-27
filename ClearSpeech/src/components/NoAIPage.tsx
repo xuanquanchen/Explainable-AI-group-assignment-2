@@ -3,12 +3,13 @@ import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 import { useNavigate } from "react-router-dom"; // Add navigate
 import { db } from "../Utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { audioList, transcriptPaths } from "../config/audioClips";
 import "../styles/Button.css";
 import "../styles/TextArea.css";
 import "../styles/AudioPlayer.css";
 
 
-export default function NoAIPage({ onComplete }: NoAIPageProps) {
+export default function NoAIPage() {
   const [transcription, setTranscription] = useState("");
   const [startTime, setStartTime] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -27,30 +28,6 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
     cer: number;
     durationSeconds: number;
   }>>([]);
-
-  const audioList = [
-    "/Testing_Data/Easy/Easy1.wav",
-    "/Testing_Data/Easy/Easy2.wav",
-    "/Testing_Data/Easy/Easy3.wav",
-    "/Testing_Data/Medium/Medium1.wav",
-    "/Testing_Data/Medium/Medium2.wav",
-    "/Testing_Data/Medium/Medium3.wav",
-    "/Testing_Data/Hard/Hard1.wav",
-    "/Testing_Data/Hard/Hard2.wav",
-    "/Testing_Data/Hard/Hard3.wav",
-  ];
-
-  const transcriptPaths = [
-    "/Testing_Data/Easy/Easy1.txt",
-    "/Testing_Data/Easy/Easy2.txt",
-    "/Testing_Data/Easy/Easy3.txt",
-    "/Testing_Data/Medium/Medium1.txt",
-    "/Testing_Data/Medium/Medium2.txt",
-    "/Testing_Data/Medium/Medium3.txt",
-    "/Testing_Data/Hard/Hard1.txt",
-    "/Testing_Data/Hard/Hard2.txt",
-    "/Testing_Data/Hard/Hard3.txt",
-  ];
 
   useEffect(() => {
       if (showTextarea) {

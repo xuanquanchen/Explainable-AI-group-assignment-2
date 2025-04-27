@@ -1,152 +1,252 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../Utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-
-interface HumanAIPageProps {
-  onComplete: (resultData: any) => void;
-}
-
-// Simulated AI-generated text with uncertain flags
-function generateFakeHumanAITranscription(): string {
-  return "Hello, this is an [uncertain] transcript based on the [uncertain] audio you uploaded.";
-}
+import { calculateWER, calculateCER } from "../utils/werCerCalculator";
+import { audioList, transcriptPaths } from "../config/audioClips";
+import { humanAISuggestions, humanAIWordAlternatives } from "../config/fakeOutput";
+import "../styles/Button.css";
+import "../styles/TextArea.css";
+import "../styles/AudioPlayer.css";
 
 // Utility: properly build highlighted HTML
 function getHighlightedHTML(text: string): string {
   return text
     .split(' ')
-    .map(word => {
-      if (word.includes('[uncertain]')) {
-        const cleanWord = word.replace('[]', '');
-        return `<span style="background-color: yellow; padding: 2px; border-radius: 4px;">${cleanWord}</span>`;
-      }
-      return word;
-    })
+    .map(word => 
+      word.includes('[uncertain]')
+        ? `<u style="background:#FEF3C7">${word.replace(/\[|\]/g, "")}</u>`
+        : word
+    )
     .join(' ');
 }
 
-export default function HumanAIPage({ onComplete }: HumanAIPageProps) {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
-  const [transcription, setTranscription] = useState<string>(generateFakeHumanAITranscription());
-  const [highlightedHTML, setHighlightedHTML] = useState<string>('');
-  const [editedTranscription, setEditedTranscription] = useState<string>("");
+export default function HumanAIPage() {
   const navigate = useNavigate();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showBegin, setShowBegin] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [startTime, setStartTime] = useState(0);
 
-  const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setAudioFile(file);
-      setAudioURL(URL.createObjectURL(file));
+  const [tokens, setTokens] = useState<string[]>([]);
+  const [rawTokens, setRawTokens] = useState<string[]>([]);
+  const [uncertainPositions, setUncertainPositions] = useState<number[]>([]);
+
+  const [html, setHtml] = useState("");
+  const [custom, setCustom] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [groundTruth, setGroundTruth] = useState("");
+  const [results, setResults] = useState<
+    Array<{
+      clipIndex: number;
+      transcription: string;
+      wer: number;
+      cer: number;
+      duration: number;
+    }>
+  >([]);
+
+  // load ground truth & generate AI when index changes
+  useEffect(() => {
+    fetch(transcriptPaths[currentIndex])
+      .then((r) => r.text())
+      .then((t) => setGroundTruth(t.trim()))
+      .catch(() => setGroundTruth(""));
+
+    const suggestion = humanAISuggestions[currentIndex]
+      .replace(/[^\w\s\[\]]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const rawTokens = suggestion.split(" ");
+    const cleanTokens = rawTokens.map(w => w.replace(/\[|\]/g, ""));
+    setTokens(cleanTokens);
+
+    const idxs: number[] = [];
+    rawTokens.forEach((w, i) => { if (/\[.*\]/.test(w)) idxs.push(i) });   
+    setUncertainPositions(idxs);
+
+    setCustom(cleanTokens.join(" "));
+
+    setHtml(
+      cleanTokens.map((word,i) =>
+          idxs.includes(i)
+          ? `<u style="background:#FEF3C7">${word.replace(/\[|\]/g,"")}</u>`
+          : word
+        )
+      .join(" ")
+    );
+
+    setShowBegin(false);
+    setShowEditor(false);
+  }, [currentIndex]);
+
+  // after audio ends, show Begin Editing
+  const onEnded = () => setShowBegin(true);
+
+  // start editor → start timer + focus textarea
+  const beginEdit = () => {
+    setStartTime(performance.now());
+    setShowEditor(true);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+  
+  // Enter at button level
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Enter" && showBegin && !showEditor) {
+        beginEdit();
+      }
     }
-  };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showBegin, showEditor]);
 
-  const handleStartRecording = () => {
-    alert("Live recording feature is optional. Please upload an audio file for now.");
-  };
+  // handle submit in textarea
+  const onKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (!custom.trim()) {
+      alert("You must enter or edit some text. Test aborted.");
+      navigate("/");
+      return;
+    }
 
-  const handleSubmit = async() => {
-    const resultData = {
-      taskType: "Human+AI",
-      transcription: editedTranscription,
-      createdAt: serverTimestamp(),
+    const end = performance.now();
+    const duration = Number(((end - startTime) / 1000).toFixed(2));
+    const wer = calculateWER(groundTruth, custom);
+    const cer = calculateCER(groundTruth, custom);
+
+    const entry = {
+      clipIndex: currentIndex,
+      transcription: custom,
+      wer,
+      cer,
+      duration,
     };
 
-    try {
-      const docRef = await addDoc(collection(db, "sessions"), resultData);
-      console.log("✅ Session saved with ID:", docRef.id);
-      navigate("/survey", { state: { sessionId: docRef.id } });
-    } catch (error) {
-      console.error("Failed to save session:", error);
+    if (currentIndex < audioList.length - 1) {
+      setResults((r) => [...r, entry]);
+      // next clip
+      setCurrentIndex((i) => i + 1);
+      // autoplay next
+      setTimeout(() => {
+        audioRef.current?.load();
+        audioRef.current?.play().catch(() => {});
+      }, 0);
+    } else {
+      // finish all → save session
+      const sessionDoc = {
+        taskType: "Human+AI",
+        clips: [...results, entry],
+        createdAt: serverTimestamp(),
+      };
+      try {
+        const docRef = await addDoc(
+          collection(db, "sessions"),
+          sessionDoc
+        );
+        navigate("/survey", { state: { sessionId: docRef.id } });
+      } catch {
+        console.error("Failed to save");
+      }
     }
   };
 
-  useEffect(() => {
-    const html = getHighlightedHTML(transcription);
-    setHighlightedHTML(html);
-  }, [transcription]);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex flex-col items-center justify-start p-8 space-y-10">
+    <div style={{ padding: "2rem", textAlign: "center" }}>
       
       {/* Header */}
-      <div className="w-full max-w-6xl flex flex-col space-y-2">
-        <h1 className="text-5xl font-bold text-gray-800">🧑‍🤝‍🧑 Human + AI Transcription</h1>
-        <p className="text-lg text-gray-500">
-          Upload audio. AI suggests a transcription. Uncertain words are highlighted for you to edit.
-        </p>
-      </div>
+      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
+        🧑‍🤝‍🧑 Human + AI Transcription
+      </h1>
 
-      {/* Upload and Audio */}
-      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8">
+      <audio
+        ref={audioRef}
+        src={audioList[currentIndex]}
+        controls
+        onEnded={onEnded}
+        className="audio-player"
+      />
 
-        {/* Upload + Player */}
-        <div className="flex flex-col space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">🎵 Upload or Record Audio</h2>
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 bg-indigo-50 hover:bg-indigo-100 rounded-xl p-8 cursor-pointer transition">
-            <span className="text-indigo-500 font-semibold mb-2">Click to Upload</span>
-            <input type="file" accept="audio/*" className="hidden" onChange={handleUploadAudio} />
-            <span className="text-xs text-indigo-400">Supported formats: .mp3, .wav</span>
-          </label>
-          <button
-            onClick={handleStartRecording}
-            className="w-full py-3 bg-red-400 hover:bg-red-500 text-white font-semibold rounded-xl shadow-md transition text-lg"
-          >
-            Record Live (Coming Soon)
-          </button>
+      {!showEditor && showBegin && (
+        <button onClick={beginEdit} className="btn">
+          Begin Editing (Press Enter)
+        </button>
+      )}
 
-          {/* Audio Player */}
-          <div className="flex flex-col space-y-2">
-            <h2 className="text-xl font-semibold text-gray-700">▶️ Audio Player</h2>
-            {audioURL ? (
-              <audio
-                controls
-                className="w-full rounded-xl border-2 border-gray-300 shadow-md transition hover:shadow-lg"
-              >
-                <source src={audioURL} type="audio/mp3" />
-                Your browser does not support the audio element.
-              </audio>
-            ) : (
-              <div className="text-center text-gray-400 text-sm py-6 border-2 border-dashed border-gray-300 rounded-xl">
-                No audio uploaded yet.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Highlighted Transcription + Editable Text */}
-        <div className="flex flex-col space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">📝 AI-Suggested (Highlighted)</h2>
-
-          {/* Highlighted Display */}
+      {showEditor && (
+        <div style={{ marginTop: "1.5rem" }}>
+          {/* Main AI suggestion */}
           <div
-            className="w-full h-60 p-6 rounded-2xl border-2 border-gray-300 bg-white shadow-inner text-md overflow-y-auto"
-            dangerouslySetInnerHTML={{ __html: highlightedHTML }}
+            style={{
+              padding: "1rem",
+              border: "1px solid #ccc",
+              borderRadius: "0.5rem",
+              marginBottom: "1rem",
+              textAlign: "left",
+              maxWidth: "600px",
+              margin: "0 auto 1rem",
+            }}
+            dangerouslySetInnerHTML={{ __html: html }}
           />
 
-          {/* Editable Final Correction */}
-          <h2 className="text-lg font-semibold text-gray-600">✏️ Edit Your Final Transcript</h2>
-          <textarea
-            value={editedTranscription}
-            onChange={(e) => setEditedTranscription(e.target.value)}
-            className="w-full h-48 p-6 rounded-2xl border-2 border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-gray-50 shadow-inner text-md resize-none transition"
-            placeholder="Edit the transcript here..."
-          ></textarea>
+          {/* Alternatives */}
+          {uncertainPositions.map((pos) => {
+            const originalClean = humanAISuggestions[currentIndex]
+              .split(" ")
+              .map(w => w.replace(/\[|\]/g, ""));
+            const rawKey = originalClean[pos];
+            const key = rawKey.replace(/[.,!?;:]/g, "");
+            const alts = humanAIWordAlternatives[currentIndex][key] || [];
+            return (
+              <div key={pos} style={{ margin: "0 auto 1rem", textAlign: "left", maxWidth: "600px" }}>
+                <p style={{ fontWeight: "bold" }}>Alternatives for “{key}”:</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {alts.map((opt, idx) => (
+                    <button
+                      className="btn"
+                      key={idx}
+                      onClick={() => {
+                        const newTokens = [...tokens];
+                        newTokens[pos] = opt;
+                        setTokens(newTokens);
+                        setCustom(newTokens.join(" "));
+                        setHtml(
+                          newTokens.map((w,i) =>
+                            uncertainPositions.includes(i)
+                              ? `<u style="background:#FEF3C7">${w}</u>`
+                              : w
+                          ).join(" ")
+                        );
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+        {/* Customize */}
+        <textarea
+          ref={textareaRef}
+          className="textarea"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Customize or edit the transcript, then press Enter"
+        />
+
+        <div style={{ marginTop: "1rem" }}>
+          <button className="btn" disabled>
+            Press Enter to Continue
+          </button>
         </div>
-
       </div>
-
-      {/* Finalize Button */}
-      <div className="w-full max-w-6xl">
-        <button
-          onClick={handleSubmit}
-          className="w-full py-5 bg-green-500 hover:bg-green-600 text-white font-bold text-2xl rounded-full shadow-xl transition"
-        >
-          Finalize and Continue
-        </button>
-      </div>
-
+      )}
     </div>
   );
 }
