@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
+import './utils/firebase'
 import Home from './pages/Home'
 import AIOnly from './pages/AIOnly'
 import HumanOnly from './pages/HumanOnly'
@@ -16,6 +17,7 @@ function App() {
         <Route path="/human" element={<HumanOnly />} />
         <Route path="/teaming" element={<Teaming />} />
       </Routes>
+      
     </>
   )
 }
