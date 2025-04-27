@@ -3,17 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../utils/firebase";
 import { audioList, transcriptPaths } from "../config/audioClips";
-
-// Dummy AI transcription generator
-function generateFakeTranscription(): string {
-  const fakeTranscriptions = [
-    "This is an AI-generated transcription based on the audio clip.",
-    "AI thinks you said: The quick brown fox jumps over the lazy dog.",
-    "Auto-generated text based on your audio input.",
-    "Simulated AI transcription for this sample clip."
-  ];
-  return fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)];
-}
+import { fakeTranscriptions } from "../config/aiOnlyFakeOutput";
+import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 
 export default function AIOnlyPage() {
   const navigate = useNavigate();
@@ -21,13 +12,22 @@ export default function AIOnlyPage() {
 
   const [clipIndex, setClipIndex] = useState(0);
   const [aiTranscription, setAITranscription] = useState("");
+  const [groundTruth, setGroundTruth] = useState("");
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [results, setResults] = useState<Array<{
+    clipIndex: number;
+    transcription: string;
+    durationSeconds: number;
+    wer: number;
+    cer: number;
+  }>>([]);
 
+  // Fetch audio and ground truth on clip change
   useEffect(() => {
-    if (!hasStarted) return; // Don't auto-play until user clicks Start
+    if (!hasStarted) return;
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -38,6 +38,14 @@ export default function AIOnlyPage() {
     }
 
     generateAndStart();
+
+    fetch(transcriptPaths[clipIndex])
+      .then((res) => res.text())
+      .then((txt) => setGroundTruth(txt.trim()))
+      .catch((err) => {
+        console.error("Failed to load transcript:", err);
+        setGroundTruth("");
+      });
   }, [clipIndex, hasStarted]);
 
   useEffect(() => {
@@ -56,6 +64,10 @@ export default function AIOnlyPage() {
     };
   }, [isTiming]);
 
+  const generateFakeTranscription = () => {
+    return fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)];
+  };
+
   const generateAndStart = () => {
     setAITranscription(generateFakeTranscription());
     setTimer(0);
@@ -71,27 +83,40 @@ export default function AIOnlyPage() {
     }, 200);
   };
 
-  const handleNextClip = () => {
+  const handleNextClip = async () => {
     setIsTiming(false);
-    setTimer(0);
-    if (clipIndex < audioList.length - 1) {
-      setClipIndex((prev) => prev + 1);
-    } else {
-      handleSubmit();
-    }
-  };
+    const durationSeconds = Number(timer.toFixed(2));
 
-  const handleSubmit = async () => {
-    const resultData = {
-      taskType: "AI Only",
-      transcription: "AI-only session completed",
-      createdAt: serverTimestamp(),
+    const wer = calculateWER(groundTruth, aiTranscription);
+    const cer = calculateCER(groundTruth, aiTranscription);
+
+    const newClipResult = {
+      clipIndex,
+      transcription: aiTranscription,
+      durationSeconds,
+      wer,
+      cer,
     };
-    try {
-      const docRef = await addDoc(collection(db, "sessions"), resultData);
-      navigate("/survey", { state: { sessionId: docRef.id } });
-    } catch (error) {
-      console.error("Fail to save: ", error);
+
+    const updatedResults = [...results, newClipResult];
+
+    if (clipIndex < audioList.length - 1) {
+      setResults(updatedResults);
+      setClipIndex((prev) => prev + 1);
+      setTimer(0);
+    } else {
+      // Last clip
+      try {
+        const sessionDoc = {
+          taskType: "AI Only",
+          clips: updatedResults,
+          createdAt: serverTimestamp(),
+        };
+        const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
+        navigate("/survey", { state: { sessionId: docRef.id } });
+      } catch (error) {
+        console.error("Failed to save session:", error);
+      }
     }
   };
 
@@ -102,7 +127,6 @@ export default function AIOnlyPage() {
   return (
     <div className="page-container bg-gradient-to-br from-green-50 to-white p-8">
       
-      {/* Header */}
       <h1 className="page-title">🤖 AI-Only Transcription Test</h1>
 
       {!hasStarted ? (
@@ -114,7 +138,6 @@ export default function AIOnlyPage() {
             <li>Click Next to continue to the next clip.</li>
           </ul>
 
-          {/* Start Test Button */}
           <button
             onClick={handleStartTest}
             className="btn bg-green-500 hover:bg-green-600 w-full max-w-md text-2xl py-4"
@@ -124,7 +147,6 @@ export default function AIOnlyPage() {
         </>
       ) : (
         <div className="w-full max-w-6xl flex flex-col items-center space-y-8 mt-10">
-
           <div className="task-block w-full space-y-6">
             <h2 className="text-xl font-semibold text-gray-700 text-center">
               Clip {clipIndex + 1} of {audioList.length}
@@ -151,8 +173,8 @@ export default function AIOnlyPage() {
               placeholder="AI-generated transcription appears here."
             />
 
-            {/* Buttons Group */}
-            <div className="flex flex-col md:flex-row items-center gap-6 justify-center w-full mt-6">
+            {/* Buttons */}
+            <div className="flex flex-col md:flex-row gap-6 justify-center w-full mt-6">
               <button
                 onClick={handleRegenerate}
                 className="btn bg-yellow-400 hover:bg-yellow-500 w-full md:w-auto py-3 px-6"
@@ -169,8 +191,6 @@ export default function AIOnlyPage() {
                   : "Accept and Next Clip"}
               </button>
             </div>
-
-
           </div>
         </div>
       )}
