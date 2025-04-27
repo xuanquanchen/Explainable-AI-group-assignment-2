@@ -12,6 +12,8 @@ import "../styles/AudioPlayer.css";
 export default function NoAIPage() {
   const [transcription, setTranscription] = useState("");
   const [startTime, setStartTime] = useState<number>(0);
+  const [timer, setTimer] = useState<number>(0);
+  const [isTiming, setIsTiming] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [groundTruth, setGroundTruth] = useState<string>("");
   const navigate = useNavigate(); // hook
@@ -28,6 +30,18 @@ export default function NoAIPage() {
     cer: number;
     durationSeconds: number;
   }>>([]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isTiming) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTiming]);
 
   useEffect(() => {
       if (showTextarea) {
@@ -49,7 +63,9 @@ export default function NoAIPage() {
   const onAudioEnded = () => setShowStartBtn(true);
 
   const handleBeginTranscription = () => {
+    setTimer(0);
     setStartTime(performance.now());
+    setIsTiming(true);
     setShowTextarea(true);
   };
 
@@ -65,12 +81,16 @@ export default function NoAIPage() {
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter") return;
+    if (!isTiming) return;
     e.preventDefault();
 
     if (!transcription.trim()) {
       alert("No text entered. Test aborted; please restart from the beginning.");
       return navigate("/");
     }
+
+    setIsTiming(false);
+    textareaRef.current?.blur()
 
     const endTime = performance.now();
     const durationSeconds = Number(((endTime - startTime) / 1000).toFixed(2));
@@ -98,12 +118,7 @@ export default function NoAIPage() {
           });
       }, 0);
     } else {
-      const finalResults = [...results, {
-        wer,
-        cer,
-        durationSeconds,
-        transcription,
-      }];
+      const finalResults = [...results, newResult];
 
       const sessionDoc = {
         taskType: "No AI",
@@ -142,13 +157,17 @@ export default function NoAIPage() {
           onClick={handleBeginTranscription}
           className="btn"
           >
-            Begin Transcription (Press Enter or Click to Continue)
+            Begin Transcription
           </button>
         )}
 
       {/* Textarea for transcription */}
       {showTextarea && (
         <>
+          <div style={{ fontSize: "1rem", color: "#555", margin: "1rem 0" }}>
+            Current Timer: {timer}s
+          </div>
+          <p>Press Enter to Continue</p>
           <textarea
             className="textarea"
             ref={textareaRef}
@@ -157,10 +176,6 @@ export default function NoAIPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type transcript here, then press Enter to submit"
           />
-
-          <button className="btn" style={{ marginTop: "1rem" }} disabled>
-            Press Enter to Continue
-          </button>
         </>
       )}
     </div>
