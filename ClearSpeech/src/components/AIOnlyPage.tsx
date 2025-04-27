@@ -1,141 +1,179 @@
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { db } from "../utils/firebase";
-
-interface AIOnlyPageProps {
-  onComplete: (resultData: any) => void;
-}
+import { audioList, transcriptPaths } from "../config/audioClips";
 
 // Dummy AI transcription generator
 function generateFakeTranscription(): string {
   const fakeTranscriptions = [
-    "Hello, this is an AI-generated transcript of your uploaded audio. Please review and proceed.",
-    "AI guesses you said: The quick brown fox jumps over the lazy dog.",
-    "This text was automatically generated based on your audio input.",
-    "Generated text: Welcome to your AI-powered transcription experience."
+    "This is an AI-generated transcription based on the audio clip.",
+    "AI thinks you said: The quick brown fox jumps over the lazy dog.",
+    "Auto-generated text based on your audio input.",
+    "Simulated AI transcription for this sample clip."
   ];
   return fakeTranscriptions[Math.floor(Math.random() * fakeTranscriptions.length)];
 }
 
-export default function AIOnlyPage({ onComplete }: AIOnlyPageProps) {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
-  const [aiTranscription, setAITranscription] = useState<string>(generateFakeTranscription());
-  const navigate = useNavigate(); // Setup navigation
+export default function AIOnlyPage() {
+  const navigate = useNavigate();
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setAudioFile(file);
-      setAudioURL(URL.createObjectURL(file));
+  const [clipIndex, setClipIndex] = useState(0);
+  const [aiTranscription, setAITranscription] = useState("");
+  const [timer, setTimer] = useState(0);
+  const [isTiming, setIsTiming] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!hasStarted) return; // Don't auto-play until user clicks Start
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((error) => console.log("Autoplay blocked:", error));
     }
-  };
 
-  const handleStartRecording = () => {
-    alert("Live recording feature is optional. Please upload an audio file for now.");
+    generateAndStart();
+  }, [clipIndex, hasStarted]);
+
+  useEffect(() => {
+    if (isTiming) {
+      intervalRef.current = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isTiming]);
+
+  const generateAndStart = () => {
+    setAITranscription(generateFakeTranscription());
+    setTimer(0);
+    setIsTiming(true);
   };
 
   const handleRegenerate = () => {
+    setIsTiming(false);
+    setTimer(0);
     setAITranscription(generateFakeTranscription());
+    setTimeout(() => {
+      setIsTiming(true);
+    }, 200);
   };
 
-  const handleSubmit = async() => {
+  const handleNextClip = () => {
+    setIsTiming(false);
+    setTimer(0);
+    if (clipIndex < audioList.length - 1) {
+      setClipIndex((prev) => prev + 1);
+    } else {
+      handleSubmit();
+    }
+  };
+
+  const handleSubmit = async () => {
     const resultData = {
       taskType: "AI Only",
-      transcription: aiTranscription,
+      transcription: "AI-only session completed",
       createdAt: serverTimestamp(),
     };
-
     try {
       const docRef = await addDoc(collection(db, "sessions"), resultData);
       navigate("/survey", { state: { sessionId: docRef.id } });
-    }
-    catch (error) {
+    } catch (error) {
       console.error("Fail to save: ", error);
     }
   };
 
+  const handleStartTest = () => {
+    setHasStarted(true);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex flex-col items-center justify-start p-8 space-y-10">
+    <div className="page-container bg-gradient-to-br from-green-50 to-white p-8">
       
       {/* Header */}
-      <div className="w-full max-w-6xl flex flex-col space-y-2">
-        <h1 className="text-5xl font-bold text-gray-800">🤖 AI-Only Transcription</h1>
-        <p className="text-lg text-gray-500">
-          Upload your audio. View and edit the AI transcription if needed. Regenerate if you wish. Finalize when ready.
-        </p>
-      </div>
+      <h1 className="page-title">🤖 AI-Only Transcription Test</h1>
 
-      {/* Upload and Audio Section */}
-      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8">
+      {!hasStarted ? (
+        <>
+          <ul style={{ paddingLeft: "1.2rem", marginBottom: "2rem", textAlign: "left", maxWidth: "600px" }}>
+            <li>Listen to 9 sample clips.</li>
+            <li>Review AI-generated transcriptions. Regenerate if unsatisfied.</li>
+            <li>Timer starts when the AI transcription is generated.</li>
+            <li>Click Next to continue to the next clip.</li>
+          </ul>
 
-        {/* Upload or Record */}
-        <div className="flex flex-col space-y-6">
-          <div className="flex flex-col space-y-2">
-            <h2 className="text-xl font-semibold text-gray-700">🎵 Upload or Record Audio</h2>
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 rounded-xl p-8 cursor-pointer transition">
-              <span className="text-green-500 font-semibold mb-2">Click to Upload</span>
-              <input type="file" accept="audio/*" className="hidden" onChange={handleUploadAudio} />
-              <span className="text-xs text-green-400">Supported: .mp3, .wav</span>
-            </label>
-            <button
-              onClick={handleStartRecording}
-              className="w-full py-3 bg-red-400 hover:bg-red-500 text-white font-semibold rounded-xl shadow-md transition text-lg"
-            >
-              Record Live (Coming Soon)
-            </button>
-          </div>
-
-          {/* Audio Player */}
-          <div className="flex flex-col space-y-2">
-            <h2 className="text-xl font-semibold text-gray-700">▶️ Audio Player</h2>
-            {audioURL ? (
-              <audio
-                controls
-                className="w-full rounded-xl border-2 border-gray-300 shadow-md transition hover:shadow-lg"
-              >
-                <source src={audioURL} type="audio/mp3" />
-                Your browser does not support the audio element.
-              </audio>
-            ) : (
-              <div className="text-center text-gray-400 text-sm py-6 border-2 border-dashed border-gray-300 rounded-xl">
-                No audio uploaded yet.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* AI Transcription */}
-        <div className="flex flex-col space-y-4">
-          <h2 className="text-xl font-semibold text-gray-700">📝 AI-Generated Transcription</h2>
-          <textarea
-            value={aiTranscription}
-            readOnly
-            className="w-full h-[28rem] p-6 rounded-2xl border-2 border-gray-300 bg-gray-100 shadow-inner text-md resize-none focus:outline-none focus:ring-2 focus:ring-green-300 transition"
-          ></textarea>
-
-          {/* Regenerate Button */}
+          {/* Start Test Button */}
           <button
-            onClick={handleRegenerate}
-            className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-white font-bold rounded-full shadow-md transition-all"
+            onClick={handleStartTest}
+            className="btn bg-green-500 hover:bg-green-600 w-full max-w-md text-2xl py-4"
           >
-            🔄 Regenerate Transcription
+            Start Test
           </button>
+        </>
+      ) : (
+        <div className="w-full max-w-6xl flex flex-col items-center space-y-8 mt-10">
+
+          <div className="task-block w-full space-y-6">
+            <h2 className="text-xl font-semibold text-gray-700 text-center">
+              Clip {clipIndex + 1} of {audioList.length}
+            </h2>
+
+            {/* Audio Player */}
+            <audio
+              ref={audioRef}
+              controls
+              src={audioList[clipIndex]}
+              className="audio-player"
+            />
+
+            {/* Timer */}
+            <div className="text-lg text-gray-600 text-center">
+              Timer: {timer}s
+            </div>
+
+            {/* AI Transcription */}
+            <textarea
+              value={aiTranscription}
+              readOnly
+              className="textarea"
+              placeholder="AI-generated transcription appears here."
+            />
+
+            {/* Buttons Group */}
+            <div className="flex flex-col md:flex-row items-center gap-6 justify-center w-full mt-6">
+              <button
+                onClick={handleRegenerate}
+                className="btn bg-yellow-400 hover:bg-yellow-500 w-full md:w-auto py-3 px-6"
+              >
+                Regenerate Transcription
+              </button>
+
+              <button
+                onClick={handleNextClip}
+                className="btn bg-green-500 hover:bg-green-600 w-full md:w-auto py-3 px-6 text-lg"
+              >
+                {clipIndex === audioList.length - 1
+                  ? "Accept and Finish Test"
+                  : "Accept and Next Clip"}
+              </button>
+            </div>
+
+
+          </div>
         </div>
-
-      </div>
-
-      {/* Finalize Button */}
-      <div className="w-full max-w-6xl">
-        <button
-          onClick={handleSubmit}
-          className="w-full py-5 bg-green-500 hover:bg-green-600 text-white font-bold text-2xl rounded-full shadow-xl transition"
-        >
-          Finalize and Continue
-        </button>
-      </div>
-
+      )}
     </div>
   );
 }
