@@ -1,25 +1,22 @@
-import { useState } from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
-import './utils/firebase'
-import Home from './pages/Home'
-import AIOnly from './pages/AIOnly'
-import HumanOnly from './pages/HumanOnly'
-import Teaming from './pages/Teaming'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from "./components/HomePage";
+import NoAIPage from "./components/NoAIPage";
+import AIOnlyPage from "./components/AIOnlyPage";
+import HumanAIPage from "./components/HumanAIPage";
+import SurveyPage from "./components/SurveyPage";
 
 function App() {
-
   return (
-    <>
+    <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/ai" element={<AIOnly />} />
-        <Route path="/human" element={<HumanOnly />} />
-        <Route path="/teaming" element={<Teaming />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/no-ai" element={<NoAIPage onComplete={(resultData) => console.log(resultData)} />} />
+        <Route path="/ai-only" element={<AIOnlyPage onComplete={(resultData) => console.log(resultData)} />} />
+        <Route path="/human-ai" element={<HumanAIPage onComplete={(resultData) => console.log(resultData)} />} />
+        <Route path="/survey" element={<SurveyPage onSubmitSurvey={(surveyData) => console.log(surveyData)} />} />
       </Routes>
-      
-    </>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;
