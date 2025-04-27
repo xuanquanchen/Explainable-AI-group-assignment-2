@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
+import { useNavigate } from "react-router-dom"; // Add navigate
 
 interface NoAIPageProps {
   onComplete: (resultData: any) => void;
@@ -13,6 +14,7 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   const [transcription, setTranscription] = useState("");
   const [startTime, setStartTime] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const navigate = useNavigate(); // hook
 
   const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -28,20 +30,15 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
   };
 
   const handleSubmit = () => {
-    if (!startTime) {
-      console.error("No start time recorded!");
-      return;
-    }
-
     const endTime = Date.now();
-    const durationSeconds = Math.round((endTime - startTime) / 1000);
+    const durationSeconds = startTime ? Math.round((endTime - startTime) / 1000) : 0;
     const wer = calculateWER(groundTruth, transcription);
     const cer = calculateCER(groundTruth, transcription);
 
     const resultData = {
       taskType: "No AI",
       transcription,
-      startTime,
+      startTime: startTime || endTime,
       endTime,
       durationSeconds,
       wer,
@@ -51,6 +48,8 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
     if (onComplete) {
       onComplete(resultData);
     }
+
+    navigate("/survey"); // Redirect immediately to survey page
   };
 
   return (
@@ -65,12 +64,12 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
           Upload an audio file or record live. Listen carefully and type what you hear.
         </p>
 
-        {/* Upload and Record Buttons */}
+        {/* Upload and Record */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-6">
           <label className="w-full md:w-1/2 flex flex-col items-center justify-center border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 rounded-xl p-6 cursor-pointer transition">
             <span className="text-blue-500 font-semibold mb-2">Upload Audio</span>
             <input type="file" accept="audio/*" className="hidden" onChange={handleUploadAudio} />
-            <span className="text-xs text-blue-400">Accepted: .mp3, .wav</span>
+            <span className="text-xs text-blue-400">Accepted formats: .mp3, .wav</span>
           </label>
 
           <button
@@ -81,7 +80,7 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
           </button>
         </div>
 
-        {/* Modern Audio Player */}
+        {/* Audio Player */}
         <div className="flex flex-col space-y-2">
           <h2 className="text-lg font-semibold text-gray-700">▶️ Audio Playback</h2>
           {audioURL ? (
@@ -100,7 +99,7 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
           )}
         </div>
 
-        {/* Transcription Typing Box */}
+        {/* Transcription Box */}
         <div className="flex flex-col space-y-2">
           <h2 className="text-lg font-semibold text-gray-700">✏️ Type Your Transcription</h2>
           <textarea
@@ -114,10 +113,7 @@ export default function NoAIPage({ onComplete }: NoAIPageProps) {
         {/* Finalize Button */}
         <button
           onClick={handleSubmit}
-          disabled={!audioFile}
-          className={`w-full py-4 text-white font-bold text-lg rounded-xl transition ${
-            audioFile ? "bg-green-500 hover:bg-green-600" : "bg-gray-300 cursor-not-allowed"
-          }`}
+          className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-xl transition"
         >
           Finalize and Continue
         </button>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 interface AIOnlyPageProps {
   onComplete: (resultData: any) => void;
@@ -19,6 +20,7 @@ export default function AIOnlyPage({ onComplete }: AIOnlyPageProps) {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioURL, setAudioURL] = useState<string | null>(null);
   const [aiTranscription, setAITranscription] = useState<string>(generateFakeTranscription());
+  const navigate = useNavigate(); // Setup navigation
 
   const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -45,6 +47,8 @@ export default function AIOnlyPage({ onComplete }: AIOnlyPageProps) {
     if (onComplete) {
       onComplete(resultData);
     }
+
+    navigate("/survey"); // Redirect to survey page
   };
 
   return (
