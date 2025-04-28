@@ -44,6 +44,7 @@ export default function HumanAIPage() {
   const [results, setResults] = useState<
     Array<{
       clipIndex: number;
+      reference: string;
       transcription: string;
       wer: number;
       cer: number;
@@ -142,6 +143,7 @@ export default function HumanAIPage() {
 
     const newResult = {
       clipIndex: currentIndex,
+      reference: groundTruth,
       transcription: custom,
       wer,
       cer,
@@ -162,9 +164,24 @@ export default function HumanAIPage() {
     } else {
       // finish all → save session
       const finalResults = [...results, newResult];
+
+      // ① 拼接所有 reference / hypothesis
+      const allReferences = finalResults.map(r => r.reference).join(" ");
+      const allHypotheses = finalResults.map(r => r.transcription).join(" ");
+
+      const overallWER = calculateWER(allReferences, allHypotheses);
+      const overallCER = calculateCER(allReferences, allHypotheses);
+
+      alert(
+        `Your overall WER: ${(overallWER * 100).toFixed(2)}%  \n` +
+        `Your overall CER: ${(overallCER * 100).toFixed(2)}%`
+      );
+
       const sessionDoc = {
         taskType: "Human+AI",
         clips: finalResults,
+        overallWER,
+        overallCER,
         createdAt: serverTimestamp(),
       };
 

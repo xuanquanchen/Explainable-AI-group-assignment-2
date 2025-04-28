@@ -17,7 +17,6 @@ export default function AIOnlyPage() {
   const [aiTranscription, setAITranscription] = useState("");
   const [regenerateCount, setRegenerateCount] = useState(0);
   const [groundTruth, setGroundTruth] = useState("");
-  const [aiSample, setAiSample] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -25,6 +24,7 @@ export default function AIOnlyPage() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [results, setResults] = useState<Array<{
     clipIndex: number;
+    reference: string;
     transcription: string;
     durationSeconds: number;
     wer: number;
@@ -37,12 +37,12 @@ export default function AIOnlyPage() {
     "The Listening section is divided into two simultaneously timed parts."
   ];
 
-  const [sampleaiSample, setsampleAiSample] = useState(sampleAlternatives[0]);
+  const [sampleAiText, setSampleAiText] = useState<string>(
+    sampleAlternatives[0]
+  );
 
   useEffect(() => {
     sampleRef.current?.play().catch(() => {});
-    const vars = aiOnlyTranscripts[0] || [];
-    setAiSample(vars[Math.floor(Math.random() * vars.length)] || "");
   }, []);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function AIOnlyPage() {
   const handleSampleRegenerate = () => {
     if (!audioEnded) return;
     const idx = Math.floor(Math.random() * sampleAlternatives.length);
-    setAiSample(sampleAlternatives[idx]);
+    setSampleAiText(sampleAlternatives[idx]);
     textareaRef.current?.focus();
   };
 
@@ -159,6 +159,7 @@ export default function AIOnlyPage() {
 
     const newClipResult = {
       clipIndex,
+      reference: groundTruth,
       transcription: aiTranscription,
       durationSeconds,
       wer,
@@ -171,10 +172,23 @@ export default function AIOnlyPage() {
       setResults(updatedResults);
       setClipIndex((prev) => prev + 1);
     } else {
+      const finalResults    = updatedResults;
+      const allReferences   = finalResults.map(r => r.reference).join(" ");
+      const allHypotheses   = finalResults.map(r => r.transcription).join(" ");
+      const overallWER      = calculateWER(allReferences, allHypotheses);
+      const overallCER      = calculateCER(allReferences, allHypotheses);
+
+      alert(
+        `Your overall WER: ${(overallWER * 100).toFixed(2)}%  \n` +
+        `Your overall CER: ${(overallCER * 100).toFixed(2)}%`
+      );
+
       try {
         const sessionDoc = {
           taskType: "AI Only",
-          clips: updatedResults,
+          clips: finalResults,
+          overallWER,
+          overallCER,
           createdAt: serverTimestamp(),
         };
         const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
@@ -244,7 +258,7 @@ export default function AIOnlyPage() {
                 <textarea
                   ref={textareaRef}
                   className="textarea"
-                  value={aiSample}
+                  value={sampleAiText}
                   readOnly
                   onKeyDown={handleSampleKey}
                   style={{
