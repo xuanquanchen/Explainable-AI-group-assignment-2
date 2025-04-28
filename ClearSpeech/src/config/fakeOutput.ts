@@ -24,16 +24,16 @@ export const humanAISuggestions = [
     { tine: ["thyme", "tine"] },
   
     // Star Wars ↔ star wars / storehouse / Starr Waters
-    { Star: ["Star", "store", "Starr"] },
+    { Star: ["Star", "store", "Starr", "stur"] },
   
     // beach ↔ peach / preach / beach
     { peach: ["peach", "preach"] },
   
     // refused ↔ reviewed / defused / refused
-    { refused: ["refused", "reviewed", "defused", "refused"] },
+    { refused: ["refused", "reviewed", "defused"] },
   
     // episode ↔ episodic / upside / episode
-    { episode: ["episode", "episodic", "upside", "episode"] },
+    { episode: ["episode", "episodic", "upside"] },
   
     // texture ↔ lecture / gesture / texture
     { gesture: ["lecture", "gesture"] },
