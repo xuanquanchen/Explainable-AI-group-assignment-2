@@ -26,6 +26,8 @@ export default function NoAIPage() {
 
   const [results, setResults] = useState<Array<{
     clipIndex: number;
+    reference: string;
+    transcription: string;
     wer: number;
     cer: number;
     durationSeconds: number;
@@ -98,7 +100,7 @@ export default function NoAIPage() {
     const wer = calculateWER(groundTruth, transcription);
     const cer = calculateCER(groundTruth, transcription);
 
-    const newResult = { clipIndex: currentIndex, wer, cer, durationSeconds,transcription };
+    const newResult = { clipIndex: currentIndex, reference: groundTruth, transcription, wer, cer, durationSeconds };
 
     // move to next clip or finish
     if (currentIndex < audioList.length - 1) {
@@ -120,11 +122,28 @@ export default function NoAIPage() {
     } else {
       const finalResults = [...results, newResult];
 
+      const allReferences = finalResults
+        .map(r => r.reference)
+        .join(" ");
+      const allHypotheses = finalResults
+        .map(r => r.transcription)
+        .join(" ");
+
+      const overallWER = calculateWER(allReferences, allHypotheses);
+      const overallCER = calculateCER(allReferences, allHypotheses);
+
       const sessionDoc = {
         taskType: "No AI",
         clips: finalResults,
+        overallWER,
+        overallCER,
         createdAt: serverTimestamp(),
       };
+
+      alert(
+        `Your overall WER: ${(overallWER * 100).toFixed(2)}%  \n` +
+        `Your overall CER: ${(overallCER * 100).toFixed(2)}%`
+      );
   
       try {
         const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
@@ -154,7 +173,6 @@ export default function NoAIPage() {
           src={audioList[currentIndex]}
           preload="metadata"
           controls
-          className="audio-player"
           onEnded={onAudioEnded}
         />
 
