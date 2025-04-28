@@ -56,6 +56,28 @@ export default function HomePage() {
         stereotypes or cultural judgments. All voices are equally valid—this test is inclusive, and any bias or discrimination will not be accepted.
       </p>
 
+      <p
+        className="warning"
+        style={{
+          color: "#aa0000",
+          fontWeight: "bold",
+          marginBottom: "1.5rem",
+        }}
+      >
+        ⚠️ Please choose only one of the three tests below. When you enter your transcription, you do NOT need to worry about letter-case or punctuation differences.
+      </p>
+
+      <p
+        className="warning"
+        style={{
+          color: "#50A2A7",
+          fontWeight: "bold",
+          marginBottom: "1.5rem",
+        }}
+      >
+        ⚠️ Please refer to the participant counts below to help keep all three groups roughly balanced.
+      </p>
+
       <div className="button-group">
         <div className="task-block">
           <button

@@ -12,12 +12,15 @@ export default function SurveyPage({ onSubmitSurvey }: SurveyPageProps) {
   const [workload, setWorkload] = useState(5);
   const navigate = useNavigate();
   const location = useLocation();
-  const { sessionId } = (location.state as { sessionId: string }) || {}; 
+  const {
+    sessionId,
+    cameFromNoAI = false,   // default to false if not provided
+  } = (location.state as { sessionId?: string; cameFromNoAI?: boolean }) || {};
 
   const handleSubmit = async() => {
     const surveyData = {
-      satisfaction,
       workload,
+      ...( !cameFromNoAI && { satisfaction } ),
       surveyAt: serverTimestamp(),
     };
 
@@ -33,6 +36,10 @@ export default function SurveyPage({ onSubmitSurvey }: SurveyPageProps) {
       console.error("Fail to save survey: ", error);
     }
     onSubmitSurvey({ satisfaction, workload });
+    alert(
+      "Congratulations! You’ve completed the survey. 🎉\n" +
+      "Thank you for your effort and time."
+    );
     navigate("/");
   };
 
@@ -51,22 +58,24 @@ export default function SurveyPage({ onSubmitSurvey }: SurveyPageProps) {
       <div className="w-full max-w-3xl flex flex-col space-y-10">
 
         {/* Satisfaction */}
-        <div className="flex flex-col space-y-2">
-          <label className="text-lg font-semibold text-gray-700">
-            😊 Satisfaction with AI assistance
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={satisfaction}
-            onChange={(e) => setSatisfaction(Number(e.target.value))}
-            className="w-full accent-purple-500"
-          />
-          <div className="text-center text-gray-600 text-sm">
-            Current: {satisfaction} / 10
+        { !cameFromNoAI && (
+          <div className="flex flex-col space-y-2">
+            <label className="text-lg font-semibold text-gray-700">
+              😊 Satisfaction with AI assistance
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              value={satisfaction}
+              onChange={(e) => setSatisfaction(Number(e.target.value))}
+              className="w-full accent-purple-500"
+            />
+            <div className="text-center text-gray-600 text-sm">
+              Current: {satisfaction} / 10
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Workload */}
         <div className="flex flex-col space-y-2">
@@ -75,7 +84,7 @@ export default function SurveyPage({ onSubmitSurvey }: SurveyPageProps) {
           </label>
           <input
             type="range"
-            min={1}
+            min={0}
             max={10}
             value={workload}
             onChange={(e) => setWorkload(Number(e.target.value))}

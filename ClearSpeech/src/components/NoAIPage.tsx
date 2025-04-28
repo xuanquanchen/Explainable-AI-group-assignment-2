@@ -128,7 +128,11 @@ export default function NoAIPage() {
   
       try {
         const docRef = await addDoc(collection(db, "sessions"), sessionDoc);
-        navigate("/survey", { state: { sessionId: docRef.id } });
+        navigate("/survey", {
+           state: { 
+            sessionId: docRef.id,
+            cameFromNoAI: true,
+          }});
       } catch (err) {
         console.error("Fail to save session :", err);
       }
@@ -144,10 +148,13 @@ export default function NoAIPage() {
 
         {/* Audio player for current clip */}
         <audio
+          key={currentIndex}
           className="audio-player"
           ref={audioRef}
           src={audioList[currentIndex]}
+          preload="metadata"
           controls
+          className="audio-player"
           onEnded={onAudioEnded}
         />
 

@@ -6,15 +6,18 @@ import { audioList, transcriptPaths } from "../config/audioClips";
 import { aiOnlyTranscripts } from "../config/aiOnlyFakeOutput";
 import { calculateWER, calculateCER } from "../utils/werCerCalculator";
 
+const base = import.meta.env.BASE_URL;
+
 export default function AIOnlyPage() {
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  const sampleRef    = useRef<HTMLAudioElement>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [aiTranscription, setAITranscription] = useState("");
   const [regenerateCount, setRegenerateCount] = useState(0);
   const [groundTruth, setGroundTruth] = useState("");
+  const [aiSample, setAiSample] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isTiming, setIsTiming] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -27,6 +30,20 @@ export default function AIOnlyPage() {
     wer: number;
     cer: number;
   }>>([]);
+
+  const sampleAlternatives = [
+    "The Listening section is divided into two separately timed parts.",
+    "The Listening section are divided into two separately timed parts.",
+    "The Listening section is divided into two simultaneously timed parts."
+  ];
+
+  const [sampleaiSample, setsampleAiSample] = useState(sampleAlternatives[0]);
+
+  useEffect(() => {
+    sampleRef.current?.play().catch(() => {});
+    const vars = aiOnlyTranscripts[0] || [];
+    setAiSample(vars[Math.floor(Math.random() * vars.length)] || "");
+  }, []);
 
   useEffect(() => {
     if (!hasStarted) return;
@@ -78,6 +95,30 @@ export default function AIOnlyPage() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isTiming]);
+
+  const handleSampleRegenerate = () => {
+    if (!audioEnded) return;
+    const idx = Math.floor(Math.random() * sampleAlternatives.length);
+    setAiSample(sampleAlternatives[idx]);
+    textareaRef.current?.focus();
+  };
+
+  const handleSampleEnded = () => {
+    setAudioEnded(true);
+  };
+  
+  const handleBeginSample = () => {
+    setTimer(0);
+    setIsTiming(true);
+    textareaRef.current?.focus();
+  };
+  
+  const handleSampleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setIsTiming(false);
+    }
+  };
 
   const generateFakeTranscript = () => {
     const variations = aiOnlyTranscripts[clipIndex];
@@ -169,6 +210,64 @@ export default function AIOnlyPage() {
             <li>Press <kbd>Enter</kbd> to accept and move to the next clip.</li>
             <li>You can regenerate the AI text if unsatisfied before moving on.</li>
           </ul>
+
+          <div style={{
+            backgroundColor: "#f0f4f8",
+            borderRadius: "8px",
+            padding: "1.5rem",
+            maxWidth: "800px",
+            margin: "2rem auto"
+          }}>
+            <h2 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>Sample Clip</h2>
+
+            <audio
+              ref={sampleRef}
+              controls
+              src={`${base}Testing_Data/sample.wav`}
+              className="audio-player"
+              onEnded={handleSampleEnded}
+              style={{ width: "100%" }}
+            />
+
+            {audioEnded && (
+              <>
+                <div style={{ margin: "1rem 0" }}>
+                  <button className="btn" onClick={handleBeginSample}>
+                    Begin Sample Transcription
+                  </button>
+                </div>
+
+                <div style={{ fontSize: "1rem", color: "#555", marginBottom: "0.5rem" }}>
+                  Timer: {timer}s
+                </div>
+
+                <textarea
+                  ref={textareaRef}
+                  className="textarea"
+                  value={aiSample}
+                  readOnly
+                  onKeyDown={handleSampleKey}
+                  style={{
+                    width: "100%",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                />
+
+                <div className="mt-4">
+                  <button className="btn" onClick={handleSampleRegenerate}>
+                    Regenerate Sample AI Text
+                  </button>
+                </div>
+
+                <div style={{ marginTop: "1rem", color: "#666", fontSize: "0.9rem" }}>
+                  (Press Enter to stop the timer)
+                </div>
+              </>
+            )}
+          </div>
 
           <button
             onClick={handleStartTest}
