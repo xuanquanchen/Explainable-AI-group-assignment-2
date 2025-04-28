@@ -1,0 +1,60 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  background-color: #f9f9f9
+}
+
+.page-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  
+  .page-title {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 2rem;
+  }
+  
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 28rem;
+  }
+  
+  .task-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .count-text {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #555;
+  }
+
+  .page-subtitle {
+    font-size: 1.25rem;
+    color: #4a4a4a;
+    margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  
+  .disclaimer {
+    font-size: 0.875rem;
+    color: #666666;
+    margin-bottom: 1.5rem;
+    max-width: 28rem;
+    text-align: center;
+    line-height: 1.4;
+  }
+  
+  
